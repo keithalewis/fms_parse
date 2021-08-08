@@ -21,6 +21,8 @@ namespace fms::parse {
 		using iterator_category = std::input_iterator_tag;
 		using value_type = T;
 		using reference = T&;
+		using pointer = T*;
+		using difference_type = ptrdiff_t;
 
 		view()
 			: buf(nullptr), len(0)
@@ -68,11 +70,11 @@ namespace fms::parse {
 			return view(buf + len, 0);
 		}
 
-		T operator*() const
+		value_type operator*() const
 		{
 			return buf[0];
 		}
-		T& operator*()
+		reference operator*()
 		{
 			return buf[0];
 		}
@@ -110,6 +112,11 @@ namespace fms::parse {
 			return *this;
 		}
 
+		view take(int n) const
+		{
+			return view(buf, n);
+		}
+
 		view& eat(T t)
 		{
 			if (buf[0] != t) {
@@ -118,6 +125,16 @@ namespace fms::parse {
 			}
 			else {
 				drop(1);
+			}
+
+			return *this;
+		}
+
+		view& eatws()
+		{
+			while (len and isspace(*buf)) {
+				--len;
+				++buf;
 			}
 
 			return *this;
@@ -153,6 +170,12 @@ namespace fms::parse {
 				assert(!v);
 				v.drop(-1); // unsafe
 				assert(*v == '3');
+			}
+			{
+				view<const char> v("abc");
+				char buf[3];
+				std::copy(v.begin(), v.end(), buf);
+				assert(0 == strncmp(buf, "abc", 3));
 			}
 
 			return 0;
@@ -196,6 +219,83 @@ namespace fms::parse {
 
 		return 0;
 	}
+#endif // _DEBUG
+
+	// skip matching left and right chars ignoring escaped
+	// "{da\}ta}..." returns escaped "da\}ta" an updates fms::view to "..."
+	inline view<const char> chop(view<const char>& v, char l, char r, char e)
+	{
+		auto tok = v;
+
+		if (l == e or r == e) {
+			v.len = -1;
+			v.buf = __FUNCTION__ ": delimiters can't be used as escape";
+		}
+		else if (v) {
+			tok.eat(l);
+			v.eat(l);
+			
+			int level = 1;
+			while (v and level) {
+				if (v.front() == e) {
+					v.drop(2);
+				}
+				// do first in case l == r
+				if (v.front() == r) {
+					--level;
+				}
+				else if (v.front() == l) {
+					++level;
+				}
+				++v;
+			};
+			if (level != 0) {
+				v.len = -1;
+				v.buf = __FUNCTION__ ": left and right delimiters not matched";
+			}
+			else {
+				tok.len = static_cast<int>(v.buf - tok.buf - 1);
+			}
+		}
+
+		return tok;
+	}
+
+	class chopable {
+		view<const char> v;
+	public:
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = view<const char>;
+		using refference = view<const char>&;
+		using pointer = view<const char>*;
+		using difference_type = ptrdiff_t;
+	};
+#ifdef _DEBUG
+
+	inline int token_test()
+	{
+		{
+			view v("{a}");
+			auto t = chop(v, '{', '}', '\\');
+			assert(t.equal(view("a")));
+			assert(!v);
+		}
+		{
+			view v("{a\\}b}c");
+			auto t = chop(v, '{', '}', '\\');
+			assert(t.equal(view("a\\}b")));
+			assert(v.equal(view("c")));
+		}
+		{
+			view v("{a\\}{b}}c");
+			auto t = chop(v, '{', '}', '\\');
+			assert(t.equal(view("a\\}{b}")));
+			assert(v.equal(view("c")));
+		}
+
+		return 0;
+	}
+
 #endif // _DEBUG
 
 } // namespace fms::parse
