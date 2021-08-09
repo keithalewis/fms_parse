@@ -30,14 +30,6 @@ namespace fms::parse {
 		view(T* buf, int len)
 			: buf(buf), len(len)
 		{ }
-		template<size_t N>
-		view(T(&buf)[N])
-			: view(buf, static_cast<int>(N))
-		{
-			if constexpr (std::is_same_v<char, std::remove_const<T>::type>) {
-				--len;
-			}
-		}
 		view(const view&) = default;
 		view& operator=(const view&) = default;
 		~view()
@@ -117,28 +109,6 @@ namespace fms::parse {
 			return view(buf, n);
 		}
 
-		view& eat(T t)
-		{
-			if (buf[0] != t) {
-				len = -1;
-				buf = __FUNCTION__ ": indigestion";
-			}
-			else {
-				drop(1);
-			}
-
-			return *this;
-		}
-
-		view& eatws()
-		{
-			while (len and isspace(*buf)) {
-				--len;
-				++buf;
-			}
-
-			return *this;
-		}
 #ifdef _DEBUG
 		static int test()
 		{
@@ -151,7 +121,8 @@ namespace fms::parse {
 				assert(!(v != v2));
 			}
 			{
-				view<const char> v("123");
+				char buf[] = "123";
+				view<const char> v(buf, 3);
 				assert(v.len == 3);
 				assert(v.front() == '1');
 				assert(v.back() == '3');
@@ -162,25 +133,48 @@ namespace fms::parse {
 					assert(vi == i++);
 				}
 				v.drop(1);
-				assert(v.equal(view<const char>("23")));
 				assert(*v == '2');
 				++v;
 				assert(*v == '3');
-				v.eat('3');
+				v.drop(1);
 				assert(!v);
 				v.drop(-1); // unsafe
 				assert(*v == '3');
-			}
-			{
-				view<const char> v("abc");
-				char buf[3];
-				std::copy(v.begin(), v.end(), buf);
-				assert(0 == strncmp(buf, "abc", 3));
 			}
 
 			return 0;
 		}
 #endif // _DEBUG
+	};
+
+	struct char_view : public view<const char> {
+		template<size_t N>
+		char_view(const char(&buf)[N])
+			: view(buf, static_cast<int>(N - 1))
+		{
+		}
+		char_view& eat(char t)
+		{
+			if (buf[0] != t) {
+				len = -1;
+				buf = __FUNCTION__ ": indigestion";
+			}
+			else {
+				drop(1);
+			}
+
+			return *this;
+		}
+
+		char_view& eatws()
+		{
+			while (len and isspace(*buf)) {
+				--len;
+				++buf;
+			}
+
+			return *this;
+		}
 	};
 
 	// convert to type from characters
@@ -205,16 +199,23 @@ namespace fms::parse {
 	inline int to_test()
 	{
 		{
-			view v("123abc");
+			char_view v("abc");
+			char buf[3];
+			std::copy(v.begin(), v.end(), buf);
+			assert(0 == strncmp(buf, "abc", 3));
+		}
+
+		{
+			char_view v("123abc");
 			auto x = to<int>(v);
 			assert(x == 123);
-			assert(v.equal(view("abc")));
+			assert(v.equal(char_view("abc")));
 		}
 		{
-			view v("1.23abc");
+			char_view v("1.23abc");
 			auto x = to<double>(v);
 			assert(x == 1.23);
-			assert(v.equal(view("abc")));
+			assert(v.equal(char_view("abc")));
 		}
 
 		return 0;
@@ -223,7 +224,7 @@ namespace fms::parse {
 
 	// skip matching left and right chars ignoring escaped
 	// "{da\}ta}..." returns escaped "da\}ta" an updates fms::view to "..."
-	inline view<const char> chop(view<const char>& v, char l, char r, char e)
+	inline char_view chop(char_view& v, char l, char r, char e)
 	{
 		auto tok = v;
 
@@ -275,22 +276,22 @@ namespace fms::parse {
 	inline int token_test()
 	{
 		{
-			view v("{a}");
+			char_view v("{a}");
 			auto t = chop(v, '{', '}', '\\');
-			assert(t.equal(view("a")));
+			assert(t.equal(char_view("a")));
 			assert(!v);
 		}
 		{
-			view v("{a\\}b}c");
+			char_view v("{a\\}b}c");
 			auto t = chop(v, '{', '}', '\\');
-			assert(t.equal(view("a\\}b")));
-			assert(v.equal(view("c")));
+			assert(t.equal(char_view("a\\}b")));
+			assert(v.equal(char_view("c")));
 		}
 		{
-			view v("{a\\}{b}}c");
+			char_view v("{a\\}{b}}c");
 			auto t = chop(v, '{', '}', '\\');
-			assert(t.equal(view("a\\}{b}")));
-			assert(v.equal(view("c")));
+			assert(t.equal(char_view("a\\}{b}")));
+			assert(v.equal(char_view("c")));
 		}
 
 		return 0;

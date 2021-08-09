@@ -10,7 +10,7 @@ namespace fms::date {
 
 	using ymd = std::tuple<int, int, int>;
 
-	inline ymd to_ymd(parse::view<const char>& v)
+	inline ymd to_ymd(parse::char_view& v)
 	{
 		int y, m, d;
 
@@ -44,7 +44,7 @@ namespace fms::date {
 
 	using hms = std::tuple<int, int, double>;
 
-	inline hms to_hms(parse::view<const char>& v)
+	inline hms to_hms(parse::char_view& v)
 	{
 		int h, m;
 		double s;
@@ -78,7 +78,7 @@ namespace fms::date {
 
 	using off = std::tuple<int, int>;
 
-	inline off to_off(parse::view<const char>& v)
+	inline off to_off(parse::char_view& v)
 	{
 		int h = 0, m = 0;
 
@@ -119,7 +119,7 @@ namespace fms::date {
 	}
 
 	// ISO 8601 date
-	inline std::tuple<ymd, hms, off> to_date(parse::view<const char>& v)
+	inline std::tuple<ymd, hms, off> to_date(parse::char_view& v)
 	{
 		ymd ymd;
 		hms hms;
@@ -152,7 +152,7 @@ namespace fms::date {
 	inline int test()
 	{
 		{
-			parse::view v("1-2-3");
+			parse::char_view v("1-2-3");
 			auto [y, m, d] = to_ymd(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -161,7 +161,7 @@ namespace fms::date {
 			assert(d == 3);
 		}
 		{
-			parse::view v("1/2/3");
+			parse::char_view v("1/2/3");
 			auto [y, m, d] = to_ymd(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -170,13 +170,13 @@ namespace fms::date {
 			assert(d == 3);
 		}
 		{
-			parse::view v("1/2-3");
+			parse::char_view v("1/2-3");
 			auto [y, m, d] = to_ymd(v);
 			assert(!v);
 			assert(v.is_error());
 		}
 		{
-			parse::view v("1:2:3");
+			parse::char_view v("1:2:3");
 			auto [h, m, s] = to_hms(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -185,7 +185,7 @@ namespace fms::date {
 			assert(s == 3);
 		}
 		{
-			parse::view v("-01:02");
+			parse::char_view v("-01:02");
 			auto [h, m] = to_off(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -193,7 +193,7 @@ namespace fms::date {
 			assert(m == -2);
 		}
 		{
-			parse::view v("2001-01-02T12:34:56.7-01:30");
+			parse::char_view v("2001-01-02T12:34:56.7-01:30");
 			auto [ymd, hms, off] = to_date(v);
 			assert(ymd == std::make_tuple(2001, 1, 2));
 			assert(hms == std::make_tuple(12, 34, 56.7));
