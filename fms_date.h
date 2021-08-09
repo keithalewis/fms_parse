@@ -119,7 +119,7 @@ namespace fms::date {
 	}
 
 	// ISO 8601 date
-	inline std::tuple<ymd, hms, off> to_date(parse::char_view& v)
+	inline std::tuple<ymd, hms, off> to_datetime(parse::char_view& v)
 	{
 		ymd ymd;
 		hms hms;
@@ -194,7 +194,7 @@ namespace fms::date {
 		}
 		{
 			parse::char_view v("2001-01-02T12:34:56.7-01:30");
-			auto [ymd, hms, off] = to_date(v);
+			auto [ymd, hms, off] = to_datetime(v);
 			assert(ymd == std::make_tuple(2001, 1, 2));
 			assert(hms == std::make_tuple(12, 34, 56.7));
 			assert(off == std::make_tuple(-1, -30));
