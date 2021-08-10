@@ -18,15 +18,9 @@
     <ClCompile Include="fms_parse.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fms_date.t.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fms_parse.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="fms_date.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fms_view.h">

@@ -1,4 +1,4 @@
-// fms_view.h - view of contiguous data
+// fms_view.h - non-owning view of contiguous data
 #pragma once
 #ifdef _DEBUG
 #include <cassert>
@@ -195,6 +195,24 @@ namespace fms {
 				v_2.drop(-2);
 				assert(v_2.len == 1);
 				assert(v_2[0] == v[0]);
+
+				auto vt{ v };
+				vt.take(10);
+				assert(vt.equal(v));
+				vt.take(-10);
+				assert(vt.equal(v));
+				vt.take(0);
+				assert(!vt);
+
+				auto vd{ v };
+				vd.drop(0);
+				assert(vd.equal(v));
+				vd.drop(10);
+				assert(!vt);
+				vd = v;
+				assert(vd);
+				vd.drop(-10);
+				assert(!vd);
 			}
 
 			return 0;

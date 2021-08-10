@@ -143,12 +143,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="fms_date.t.cpp" />
     <ClCompile Include="fms_parse.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fms_char_view.h" />
-    <ClInclude Include="fms_date.h" />
     <ClInclude Include="fms_parse.h" />
     <ClInclude Include="fms_view.h" />
   </ItemGroup>

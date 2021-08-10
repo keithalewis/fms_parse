@@ -4,6 +4,7 @@
 #pragma once
 #ifdef _DEBUG
 #include <cassert>
+#include <string>
 #endif
 #include <ctime>
 #include <algorithm>
@@ -13,288 +14,424 @@
 
 namespace fms::parse {
 
-	/*
-	// skip matching left and right delimiters ignoring escaped
-	inline int next(const char_view& v, char l = 0, char r = 0, char e = 0)
+	// convert to type X from characters
+	template<class X>
+	inline X to(char_view& v)
 	{
-		int n = 1;
+		X x;
 
-		if (v and v.front() == l) {
-			int level = 1;
-			while (level and n < v.len) {
-				if (v[n] == e) {
-					++n;
+		std::from_chars_result result = std::from_chars(v.buf, v.buf + v.len, x);
+		if (result.ec != std::errc()) {
+			v.len = -1;
+			v.buf = __FUNCTION__ ": std::from_chars failed";
+		}
+		else {
+			v.drop(static_cast<int>(result.ptr - v.buf));
+		}
+
+		return x;
+	}
+
+#ifdef _DEBUG
+	inline int to_test()
+	{
+		{
+			char_view v("abc");
+			char buf[3];
+			std::copy(v.begin(), v.end(), buf);
+			assert(0 == strncmp(buf, "abc", 3));
+		}
+
+		{
+			char_view v("123abc");
+			auto x = to<int>(v);
+			assert(x == 123);
+			assert(v.equal("abc"));
+		}
+		{
+			char_view v("1.23abc");
+			auto x = to<double>(v);
+			assert(x == 1.23);
+			assert(v.equal("abc"));
+		}
+
+		return 0;
+	}
+#endif // _DEBUG
+
+	using ymd = std::tuple<int, int, int>;
+
+	inline ymd to_ymd(char_view& v)
+	{
+		int y, m, d;
+
+		if (v) {
+			y = to<int>(v);
+			if (v) {
+				char c = v.front();
+				if (c != '-' and c != '/') {
+					v.len = -1;
+					v.buf = __FUNCTION__ ": invalid year-month separator";
 				}
-				else if (v[n] == r) {
-					--level;
+				else {
+					v.eat(c);
+					m = to<int>(v);
+					if (v) {
+						if (v.front() != c) {
+							v.len = -1;
+							v.buf = __FUNCTION__ ": invalid month-day separator";
+						}
+						else {
+							v.eat(c);
+							d = to<int>(v);
+						}
+					}
 				}
-				else if (v[n] == l) {
-					++level;
-				}
-				++n;
-			}
-			if (level != 0) {
-				n = -1;
 			}
 		}
 
-		return n;
+		return { y, m, d };
 	}
 
-	class chopable {
-		char_view v;
-		char l, r, e;
-		int n;
+	using hms = std::tuple<int, int, double>;
+
+	inline hms to_hms(char_view& v)
+	{
+		int h, m;
+		double s;
+
+		if (v) {
+			h = to<int>(v);
+			if (v) {
+				if (v.front() != ':') {
+					v.len = -1;
+					v.buf = __FUNCTION__ ": invalid hour:minute separator";
+				}
+				else {
+					v.eat(':');
+					m = to<int>(v);
+					if (v) {
+						if (v.front() != ':') {
+							v.len = -1;
+							v.buf = __FUNCTION__ ": invalid minute:second separator";
+						}
+						else {
+							v.eat(':');
+							s = to<double>(v);
+						}
+					}
+				}
+			}
+		}
+
+		return { h, m, s };
+	}
+
+	using off = std::tuple<int, int>;
+
+	inline off to_off(char_view& v)
+	{
+		int h = 0, m = 0;
+
+		if (v) {
+			char sgn = v.front();
+
+			if (sgn == 'Z') {
+				v.eat('Z'); // Zulu
+			}
+			else {
+				if (sgn != '+' and sgn != '-') {
+					v.len = -1;
+					v.buf = __FUNCTION__ ": offset must start with + or -";
+				}
+				else {
+					v.eat(sgn);
+					h = to<int>(v);
+					if (v) {
+						if (v.front() != ':') {
+							v.len = -1;
+							v.buf = __FUNCTION__ ": invalid hour:minute offset separator";
+						}
+						else {
+							v.eat(':');
+							m = to<int>(v);
+						}
+					}
+				}
+
+				if (sgn == '-') {
+					h = -h;
+					m = -m;
+				}
+			}
+		}
+
+		return { h, m };
+	}
+
+	// ISO 8601 date
+	inline std::tuple<ymd, hms, off> to_datetime(char_view& v)
+	{
+		ymd ymd;
+		hms hms;
+		off off;
+
+		if (v) {
+			ymd = to_ymd(v);
+			if (v) {
+				char c = v.front();
+				if (c != 'T' and c != ' ') {
+					v.len = -1;
+					v.buf = __FUNCTION__ ": ymd hms separator must be 'T' or ' '";
+				}
+				else {
+					v.eat(c);
+					if (v) {
+						hms = to_hms(v);
+						if (v) {
+							off = to_off(v);
+						}
+					}
+				}
+			}
+		}
+
+		return { ymd, hms, off };
+	}
+
+#ifdef _DEBUG
+	inline int datetime_test()
+	{
+		{
+			char_view v("1-2-3");
+			auto [y, m, d] = to_ymd(v);
+			assert(!v);
+			assert(v.len == 0);
+			assert(y == 1);
+			assert(m == 2);
+			assert(d == 3);
+		}
+		{
+			char_view v("1/2/3");
+			auto [y, m, d] = to_ymd(v);
+			assert(!v);
+			assert(v.len == 0);
+			assert(y == 1);
+			assert(m == 2);
+			assert(d == 3);
+		}
+		{
+			char_view v("1/2-3");
+			auto [y, m, d] = to_ymd(v);
+			assert(!v);
+			assert(v.is_error());
+		}
+		{
+			char_view v("1:2:3");
+			auto [h, m, s] = to_hms(v);
+			assert(!v);
+			assert(v.len == 0);
+			assert(h == 1);
+			assert(m == 2);
+			assert(s == 3);
+		}
+		{
+			char_view v("-01:02");
+			auto [h, m] = to_off(v);
+			assert(!v);
+			assert(v.len == 0);
+			assert(h == -1);
+			assert(m == -2);
+		}
+		{
+			char_view v("2001-01-02T12:34:56.7-01:30");
+			auto [ymd, hms, off] = to_datetime(v);
+			assert(ymd == std::make_tuple(2001, 1, 2));
+			assert(hms == std::make_tuple(12, 34, 56.7));
+			assert(off == std::make_tuple(-1, -30));
+		}
+
+		return 0;
+	}
+#endif // _DEBUG
+
+	// return view up to c that is not quoted and advance v
+	inline char_view split(char_view& v, char c, char l, char r, char e)
+	{
+		char_view _v{ v };
+
+		while (_v and *_v != c) {
+			if (*_v == l) {
+				int level = 1;
+				while (++_v and level) {
+					if (*_v == r) {
+						--level;
+					}
+					else if (*_v == l) {
+						++level;
+					}
+					else if (*_v == e) {
+						++_v;
+					}
+				}
+				if (level != 0) {
+					_v.len = -1;
+					//_v.buf points to last char parsed;
+				}
+			}
+			++_v;
+		}
+
+		if (_v.len >= 0) {
+			int n = static_cast<int>(_v.buf - v.buf);
+			std::swap(v.len, _v.len);
+			std::swap(v.buf, _v.buf);
+			_v.take(n);
+			v.drop(1); // drop c
+		}
+
+		return _v;
+	}
+
+	class splitable {
+		char_view v, _v;
+		char c, l, r, e;
+		void incr()
+		{
+			if (!std::isspace(l)) {
+				_v.wstrim();
+			}
+			v = split(_v, c, l, r, e);
+			if (!std::isspace(r)) {
+				v.trimws();
+			}
+		}
 	public:
-		using iterator_category = std::forward_iterator_tag;
+		using iterator_category = std::input_iterator_tag;
 		using value_type = char_view;
 		using reference = char_view&;
 		using pointer = char_view*;
 		using difference_type = ptrdiff_t;
 
-		chopable()
+		splitable()
 		{ }
-		chopable(const char_view& v, char l = 0, char r = 0, char e = 0)
-			: v(eatws(v)), l(l), r(r), e(e), n(next(eatws(v), l, r, e))
-		{ }
-		chopable(const chopable&) = default;
-		chopable& operator=(const chopable&) = default;
-		~chopable()
+		splitable(const char_view& v, char c, char l = 0, char r = 0, char e = 0)
+			: _v(v), c(c), l(l), r(r), e(e)
+		{
+			incr();
+		}
+		splitable(const splitable&) = default;
+		splitable& operator=(const splitable&) = default;
+		~splitable()
 		{ }
 
-		chopable& take(int n)
+		// needed ???
+		splitable& take(int n)
 		{
 			v.take(n);
 
 			return *this;
 		}
 
-		auto operator<=>(const chopable&) const = default;
-
+		auto operator<=>(const splitable&) const = default;
 		explicit operator bool() const
 		{
 			return !!v;
 		}
+
 		auto begin() const
 		{
 			return *this;
 		}
 		auto end() const
 		{
-			return chopable(char_view(v.buf + v.len, 0), r, l, e);
+			return splitable(char_view(_v.buf + _v.len, 0), c, r, l, e);
 		}
 
 		char_view operator*() const
 		{
-			char_view v_{ v };
+			return v;
+		}
+		splitable& operator++()
+		{
+			if (v) {
+				incr();
+			}
 
-			v_.take(n);
+			return *this;
+		}
+		splitable operator++(int)
+		{
+			splitable v_{ *this };
+
+			operator++();
 
 			return v_;
 		}
-		chopable& operator++()
-		{
-			if (n > 0 and v) {
-				v.drop(n);
-				v.eatws();
-				n = next(v, l, r, e);
-			}
-
-			return *this;
-		}
-#ifdef _DEBUG
-		static int test()
-		{
-			{
-				char_view v("a{bd}de");
-				auto vi = chopable(v, '{', '}');
-				assert((*vi).equal("a"));
-				++vi;
-				assert((*vi).equal("{bd}"));
-				++vi;
-				assert((*vi).equal("d"));
-				++vi;
-				assert((*vi).equal("e"));
-				++vi;
-				assert(!vi);
-			}
-			{
-				char_view v("\ta bc\r\nd");
-				chopable vi(v);
-				char a = 'a';
-				for (const auto& i : vi) {
-					assert(i.len == 1);
-					assert(i.front() == a);
-					++a;
-				}
-			}
-
-			return 0;
-		}
-#endif // _DEBUG
-	};
-
-	// split chopable on separator
-	class items {
-		chopable v, _v;
-		char sep;
-		void next()
-		{
-			v = _v;
-
-			while (_v) {
-				if ((*_v).len == 1 and (*_v).front() == sep) {
-					break;
-				}
-				++_v;
-			}
-
-			v.take(static_cast<int>((*_v).buf - (*v).buf));
-
-			if (_v) {
-				++_v; // skip sep
-			}
-		}
-	public:
-		using iterator_category = std::forward_iterator_tag;
-		using value_type = chopable;
-		using reference = chopable&;
-		using pointer = chopable*;
-		using difference_type = ptrdiff_t;
-
-		items()
-			: v{}, _v{}, sep(0)
-		{ }
-		items(const chopable& v, char sep)
-			: _v(v), sep(sep)
-		{
-			next();
-		}
-		items(const items&) = default;
-		items& operator=(const items&) = default;
-		~items()
-		{ }
-
-		auto operator<=>(const items&) const = default;
-		explicit operator bool() const
-		{
-			return !!v;
-		}
-
-		auto begin() const
-		{
-			return *this;
-		}
-		auto end() const
-		{
-			return items(_v.end(), sep);
-		}
-
-		chopable operator*() const
-		{
-			return v;
-		}
-		chopable& operator*()
-		{
-			return v;
-		}
-		items& operator++()
-		{
-			if (v) {
-				next();
-			}
-
-			return *this;
-		}
 #ifdef _DEBUG
 
 		static int test()
 		{
 			{
 				char_view v("a,b,c");
-				items i(v, ',');
-				assert((*(*i)).equal("a"));
-				++i;
-				assert((*(*i)).equal("b"));
-				++i;
-				assert((*(*i)).equal("c"));
-				++i;
-				assert(!i);
-			}
-			{
-				char_view v("a,b,c");
-				items is(v, ',');
+				splitable ss(v, ',');
 				char a = 'a';
-				for (const auto& i : is) {
-					assert(**i == a);
+				for (const auto& s : ss) {
+					assert(s.len == 1);
+					assert(s.front() == a);
 					++a;
 				}
 			}
 			{
-				char_view v(" a,\tb\n;\rc, d");
-				items is(v, ';');
-				std::string s;
-				for (const auto& i : is) {
-					auto js = items(i, ',');
-					for (const auto& j : js) {
-						s.append((*j).buf, (*j).len);
-						s.append("\t");
-					}
-					s.append("\n");
+				char_view v(" a\t,\rb, c\n");
+				splitable ss(v, ',');
+				char a = 'a';
+				for (const auto& s : ss) {
+					assert(s.len == 1);
+					assert(s.front() == a);
+					++a;
 				}
-				assert(s == "a\tb\t\nc\td\t\n");
 			}
-
-			return 0;
-		}
-
-#endif // _DEBUG
-
-	};
-
-	class csv {
-		chopable v;
-		char fs, rs;
-	public:
-		csv(const chopable& v, char fs, char rs)
-			: v(v), fs(fs), rs(rs)
-		{ }
-		items records() const
-		{
-			return items(v, rs);
-		}
-		items fields(const chopable& record) const
-		{
-			return items(*record, fs);
-		}
-#ifdef _DEBUG
-
-		static int test()
-		{
 			{
+				char_view v("a\tb\tc");
+				splitable ss(v, '\t');
+				char a = 'a';
+				for (const auto& s : ss) {
+					assert(s.len == 1);
+					assert(s.front() == a);
+					++a;
+				}
+			}
+			{
+				char_view v("a{,}b,c ");
+				splitable ss(v, ',', '{', '}');
+				assert((*ss).equal("a{,}b"));
+				++ss;
+				assert((*ss).equal("c"));
+				++ss;
+				assert(!ss);
+			}
+			{
+				char_view v("a{\\}}b,c ");
+				splitable ss(v, ',', '{', '}', '\\');
+				assert((*ss).equal("a{\\}}b"));
+				++ss;
+				assert((*ss).equal("c"));
+				++ss;
+				assert(!ss);
+			}
+			{
+				// csv parsing
 				char_view v("a,b;c,d");
-				csv t(v, ',', ';');
 				std::string s;
-				for (const auto& record : t.records()) {
-					for (const auto& field : t.fields(record)) {
-						s.append((*field).buf, (*field).len);
+				for (const auto& r : splitable(v, ';')) { // records
+					for (const auto& f : splitable(r, ',')) { // fields
+						s.append(f.buf, f.len);
 						s.append("\t");
 					}
 					s.append("\n");
 				}
 				assert(s == "a\tb\t\nc\td\t\n");
-			}
-			{
-				char_view v("a, \"b c\"; foo, bar");
-				csv t(chopable(v, '"', '"'), ',', ';');
-				std::string s;
-				for (const auto& record : t.records()) {
-					for (const auto& field : t.fields(record)) {
-						s.append((*field).buf, (*field).len);
-						s.append("\t");
-					}
-					s.append("\n");
-				}
 			}
 
 			return 0;
@@ -302,5 +439,5 @@ namespace fms::parse {
 
 #endif // _DEBUG
 	};
-	*/
+
 } // namespace fms::parse
