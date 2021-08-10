@@ -10,12 +10,12 @@ namespace fms::date {
 
 	using ymd = std::tuple<int, int, int>;
 
-	inline ymd to_ymd(parse::char_view& v)
+	inline ymd to_ymd(char_view& v)
 	{
 		int y, m, d;
 
 		if (v) {
-			y = parse::to<int>(v);
+			y = to<int>(v);
 			if (v) {
 				char c = v.front();
 				if (c != '-' and c != '/') {
@@ -24,7 +24,7 @@ namespace fms::date {
 				}
 				else {
 					v.eat(c);
-					m = fms::parse::to<int>(v);
+					m = fms::to<int>(v);
 					if (v) {
 						if (v.front() != c) {
 							v.len = -1;
@@ -32,7 +32,7 @@ namespace fms::date {
 						}
 						else {
 							v.eat(c);
-							d = fms::parse::to<int>(v);
+							d = fms::to<int>(v);
 						}
 					}
 				}
@@ -44,13 +44,13 @@ namespace fms::date {
 
 	using hms = std::tuple<int, int, double>;
 
-	inline hms to_hms(parse::char_view& v)
+	inline hms to_hms(char_view& v)
 	{
 		int h, m;
 		double s;
 
 		if (v) {
-			h = parse::to<int>(v);
+			h = to<int>(v);
 			if (v) {
 				if (v.front() != ':') {
 					v.len = -1;
@@ -58,7 +58,7 @@ namespace fms::date {
 				}
 				else {
 					v.eat(':');
-					m = parse::to<int>(v);
+					m = to<int>(v);
 					if (v) {
 						if (v.front() != ':') {
 							v.len = -1;
@@ -66,7 +66,7 @@ namespace fms::date {
 						}
 						else {
 							v.eat(':');
-							s = parse::to<double>(v);
+							s = to<double>(v);
 						}
 					}
 				}
@@ -78,7 +78,7 @@ namespace fms::date {
 
 	using off = std::tuple<int, int>;
 
-	inline off to_off(parse::char_view& v)
+	inline off to_off(char_view& v)
 	{
 		int h = 0, m = 0;
 
@@ -95,7 +95,7 @@ namespace fms::date {
 				}
 				else {
 					v.eat(sgn);
-					h = parse::to<int>(v);
+					h = to<int>(v);
 					if (v) {
 						if (v.front() != ':') {
 							v.len = -1;
@@ -103,7 +103,7 @@ namespace fms::date {
 						}
 						else {
 							v.eat(':');
-							m = parse::to<int>(v);
+							m = to<int>(v);
 						}
 					}
 				}
@@ -119,7 +119,7 @@ namespace fms::date {
 	}
 
 	// ISO 8601 date
-	inline std::tuple<ymd, hms, off> to_datetime(parse::char_view& v)
+	inline std::tuple<ymd, hms, off> to_datetime(char_view& v)
 	{
 		ymd ymd;
 		hms hms;
@@ -152,7 +152,7 @@ namespace fms::date {
 	inline int test()
 	{
 		{
-			parse::char_view v("1-2-3");
+			char_view v("1-2-3");
 			auto [y, m, d] = to_ymd(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -161,7 +161,7 @@ namespace fms::date {
 			assert(d == 3);
 		}
 		{
-			parse::char_view v("1/2/3");
+			char_view v("1/2/3");
 			auto [y, m, d] = to_ymd(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -170,13 +170,13 @@ namespace fms::date {
 			assert(d == 3);
 		}
 		{
-			parse::char_view v("1/2-3");
+			char_view v("1/2-3");
 			auto [y, m, d] = to_ymd(v);
 			assert(!v);
 			assert(v.is_error());
 		}
 		{
-			parse::char_view v("1:2:3");
+			char_view v("1:2:3");
 			auto [h, m, s] = to_hms(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -185,7 +185,7 @@ namespace fms::date {
 			assert(s == 3);
 		}
 		{
-			parse::char_view v("-01:02");
+			char_view v("-01:02");
 			auto [h, m] = to_off(v);
 			assert(!v);
 			assert(v.len == 0);
@@ -193,7 +193,7 @@ namespace fms::date {
 			assert(m == -2);
 		}
 		{
-			parse::char_view v("2001-01-02T12:34:56.7-01:30");
+			char_view v("2001-01-02T12:34:56.7-01:30");
 			auto [ymd, hms, off] = to_datetime(v);
 			assert(ymd == std::make_tuple(2001, 1, 2));
 			assert(hms == std::make_tuple(12, 34, 56.7));

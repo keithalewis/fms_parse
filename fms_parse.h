@@ -8,385 +8,12 @@
 #include <ctime>
 #include <algorithm>
 #include <charconv>
-#include <chrono>
 #include <iterator>
+#include "fms_char_view.h"
 
 namespace fms::parse {
 
-	template<class T>
-	struct view {
-		T* buf;
-		int len;
-
-		using iterator_category = std::input_iterator_tag;
-		using value_type = T;
-		using reference = T&;
-		using pointer = T*;
-		using difference_type = ptrdiff_t;
-
-		view() noexcept
-			: buf(nullptr), len(0)
-		{ }
-		view(T* buf, int len) noexcept
-			: buf(buf), len(len)
-		{ }
-		view(const view&) = default;
-		view& operator=(const view&) = default;
-		~view()
-		{ }
-
-		view& swap(view& v) noexcept
-		{
-			std::swap(len, v.len);
-			std::swap(buf, v.buf);
-
-			return *this;
-		}
-
-		bool is_error() const
-		{
-			return len < 0;
-		}
-		explicit operator bool() const
-		{
-			return len > 0;
-		}
-		bool operator==(const view& v) const
-		{
-			return len == v.len and buf == v.buf;
-		}
-		bool equal(const view& v) const
-		{
-			return len == v.len and std::equal(buf, buf + len, v.buf);
-		}
-
-		// STL friendly
-		view begin() const
-		{
-			return *this;
-		}
-		view end() const
-		{
-			return view(buf + len, 0);
-		}
-
-		value_type operator*() const
-		{
-			return buf[0];
-		}
-		reference operator*()
-		{
-			return buf[0];
-		}
-		view& operator++()
-		{
-			++buf;
-			--len;
-
-			return *this;
-		}
-		view operator++(int)
-		{
-			view v_(*this);
-
-			++buf;
-			--len;
-
-			return v_;
-		}
-
-		T operator[](int n) const
-		{
-			return buf[n];
-		}
-		T& operator[](int n)
-		{
-			return buf[n];
-		}
-
-		T front() const
-		{
-			return buf[0];
-		}
-		T back() const
-		{
-			return buf[len - 1];
-		}
-
-		view& drop(int n)
-		{
-			n = std::clamp(n, -len, len);
-
-			if (n > 0) {
-				buf += n;
-				len -= n;
-			}
-			else if (n < 0) {
-				take(len + n);
-			}
-
-			return *this;
-		}
-
-		view& take(int n)
-		{
-			n = std::clamp(n, -len, len);
-
-			if (n >= 0) {
-				len = n;
-			}
-			else {
-				drop(len + n);
-			}
-
-			return *this;
-		}
-
-#ifdef _DEBUG
-		static int test()
-		{
-			{
-				view<char> v;
-				assert(!v);
-				auto v2{ v };
-				assert(v2 == v);
-				v = v2;
-				assert(!(v != v2));
-			}
-			{
-				char buf[] = "123";
-				view<const char> v(buf, 3);
-				assert(v.len == 3);
-				assert(v.front() == '1');
-				assert(v.back() == '3');
-				auto v2{ v };
-				assert(v2 == v);
-				char i = '1';
-				for (auto vi : v) {
-					assert(vi == i++);
-				}
-				v.drop(1);
-				assert(*v == '2');
-				++v;
-				assert(*v == '3');
-				v.drop(1);
-				assert(!v);
-			}
-			{
-				char buf[] = "123";
-				view<const char> v(buf, 3);
-				v.take(2);
-				assert(v.len == 2);
-				assert(v.buf[0] == '1');
-				assert(v.buf[1] == '2');
-			}
-			{
-				char buf[] = "123";
-				view<const char> v(buf, 3);
-				for (int i = 0; i < 3; ++i) {
-					assert(v[i] == buf[i]);
-				}
-
-				auto v_1{ v };
-				v_1.take(-1);
-				assert(v_1.len == 1);
-				assert(v_1[0] == v[2]);
-
-				auto v_2{ v };
-				v_2.drop(-2);
-				assert(v_2.len == 1);
-				assert(v_2[0] == v[0]);
-			}
-
-			return 0;
-		}
-#endif // _DEBUG
-	};
-
-	template<class T>
-	inline bool equal(const view<T>& v, const view<T>& w)
-	{
-		return v.equal(w);
-	}
-
-	template<class T>
-	inline view<T> drop(view<T> v, int n)
-	{
-		return v.drop(n);
-	}
-
-	template<class T>
-	inline view<T> take(view<T> v, int n)
-	{
-		return v.take(n);
-	}
-
-	struct char_view : public view<const char> {
-		// bring in all constructors
-		using view<const char>::view;
-
-		template<size_t N>
-		char_view(const char(&buf)[N])
-			: view(buf, static_cast<int>(N - 1))
-		{ }
-
-		char_view& eat(char t)
-		{
-			if (len and *buf == t) {
-				drop(1);
-			}
-			else {
-				len = -1;
-				buf = __FUNCTION__ ": indigestion";
-			}
-
-			return *this;
-		}
-		
-		char_view& eatws()
-		{
-			while (len and isspace(*buf)) {
-				--len;
-				++buf;
-			}
-
-			return *this;
-		}
-#ifdef _DEBUG
-		static int test()
-		{
-			{
-				char_view v("abc");
-				v.eat('a');
-				assert(v);
-				assert(v.equal(char_view("bc")));
-				v.eat('c');
-				assert(!v);
-			}
-			{
-				char_view v(" \tabc");
-				v.eatws();
-				assert(v.equal(char_view("abc")));
-				v.eatws();
-				assert(v.equal(char_view("abc")));
-			}
-
-			return 0;
-		}
-#endif // _DEBUG
-	};
-
-	// noop if *v != t
-	inline char_view eat(char_view& v, char t)
-	{
-		char_view v_(v);
-
-		v_.eat(t);
-		if (v_) {
-			v = v_;
-		}
-
-		return v_ ? v : v_;
-	}
-	// noop if entire string not eaten
-	inline char_view eat(char_view& v, const char* s, int len = 0)
-	{
-		char_view v_{v};
-
-		if (len) {
-			while (v_ and len--) {
-				v_.eat(*s++);
-			}
-		}
-		else {
-			while (v_ and *s) {
-				v_.eat(*s++);
-			}
-		}
-
-		// ate everything
-		if (v_) {
-			v = v_;
-		}
-
-		return v_ ? v : v_;
-	}
-
-	inline char_view eatws(char_view v)
-	{
-		return v.eatws();
-	}
-
-#ifdef _DEBUG
-
-	inline int eat_test()
-	{
-		{
-			char_view v("abc");
-			assert(eat(v, "ab"));
-			assert(v.equal(char_view("c")));
-		}
-		{
-			char_view v("abc");
-			assert(!eat(v, "ac"));
-			assert(v.equal(char_view("abc")));
-		}
-		{
-			char_view v("abc");
-			assert(eat(v, "ac", 1));
-			assert(v.equal(char_view("bc")));
-		}
-
-		return 0;
-	}
-
-#endif // _DEBUG
-
-	// convert to type from characters
-	template<class X>
-	inline X to(char_view& v)
-	{
-		X x;
-
-		std::from_chars_result result = std::from_chars(v.buf, v.buf + v.len, x);
-		if (result.ec != std::errc()) {
-			v.len = -1;
-			v.buf = __FUNCTION__ ": std::from_chars failed";
-		}
-		else {
-			v.drop(static_cast<int>(result.ptr - v.buf));
-		}
-
-		return x;
-	}
-
-#ifdef _DEBUG
-	inline int to_test()
-	{
-		{
-			char_view v("abc");
-			char buf[3];
-			std::copy(v.begin(), v.end(), buf);
-			assert(0 == strncmp(buf, "abc", 3));
-		}
-
-		{
-			char_view v("123abc");
-			auto x = to<int>(v);
-			assert(x == 123);
-			assert(v.equal(char_view("abc")));
-		}
-		{
-			char_view v("1.23abc");
-			auto x = to<double>(v);
-			assert(x == 1.23);
-			assert(v.equal(char_view("abc")));
-		}
-
-		return 0;
-	}
-#endif // _DEBUG
-
+	/*
 	// skip matching left and right delimiters ignoring escaped
 	inline int next(const char_view& v, char l = 0, char r = 0, char e = 0)
 	{
@@ -481,13 +108,13 @@ namespace fms::parse {
 			{
 				char_view v("a{bd}de");
 				auto vi = chopable(v, '{', '}');
-				assert((*vi).equal(char_view("a")));
+				assert((*vi).equal("a"));
 				++vi;
-				assert((*vi).equal(char_view("{bd}")));
+				assert((*vi).equal("{bd}"));
 				++vi;
-				assert((*vi).equal(char_view("d")));
+				assert((*vi).equal("d"));
 				++vi;
-				assert((*vi).equal(char_view("e")));
+				assert((*vi).equal("e"));
 				++vi;
 				assert(!vi);
 			}
@@ -586,11 +213,11 @@ namespace fms::parse {
 			{
 				char_view v("a,b,c");
 				items i(v, ',');
-				assert((*(*i)).equal(char_view("a")));
+				assert((*(*i)).equal("a"));
 				++i;
-				assert((*(*i)).equal(char_view("b")));
+				assert((*(*i)).equal("b"));
 				++i;
-				assert((*(*i)).equal(char_view("c")));
+				assert((*(*i)).equal("c"));
 				++i;
 				assert(!i);
 			}
@@ -675,5 +302,5 @@ namespace fms::parse {
 
 #endif // _DEBUG
 	};
-
+	*/
 } // namespace fms::parse

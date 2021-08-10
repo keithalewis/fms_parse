@@ -147,8 +147,13 @@
     <ClCompile Include="fms_parse.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="fms_char_view.h" />
     <ClInclude Include="fms_date.h" />
     <ClInclude Include="fms_parse.h" />
+    <ClInclude Include="fms_view.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
