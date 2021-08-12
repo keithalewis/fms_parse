@@ -16,7 +16,7 @@ namespace fms::parse {
 
 	// convert to type X from characters
 	template<class X>
-	inline X to(char_view& v)
+	inline X to(char_view<const char>& v)
 	{
 		X x;
 
@@ -61,7 +61,7 @@ namespace fms::parse {
 
 	using ymd = std::tuple<int, int, int>;
 
-	inline ymd to_ymd(char_view& v)
+	inline ymd to_ymd(char_view<const char>& v)
 	{
 		int y, m, d;
 
@@ -95,7 +95,7 @@ namespace fms::parse {
 
 	using hms = std::tuple<int, int, double>;
 
-	inline hms to_hms(char_view& v)
+	inline hms to_hms(char_view<const char>& v)
 	{
 		int h, m;
 		double s;
@@ -129,7 +129,7 @@ namespace fms::parse {
 
 	using off = std::tuple<int, int>;
 
-	inline off to_off(char_view& v)
+	inline off to_off(char_view<const char>& v)
 	{
 		int h = 0, m = 0;
 
@@ -170,7 +170,7 @@ namespace fms::parse {
 	}
 
 	// ISO 8601 date
-	inline std::tuple<ymd, hms, off> to_datetime(char_view& v)
+	inline std::tuple<ymd, hms, off> to_datetime(char_view<const char>& v)
 	{
 		ymd ymd;
 		hms hms;
@@ -256,7 +256,7 @@ namespace fms::parse {
 #endif // _DEBUG
 
 	// return view up to c that is not quoted and advance v
-	inline char_view split(char_view& v, char c, char l, char r, char e)
+	inline char_view<const char> split(char_view<const char>& v, char c, char l, char r, char e)
 	{
 		char_view _v{ v };
 
@@ -294,7 +294,7 @@ namespace fms::parse {
 	}
 
 	class splitable {
-		char_view v, _v;
+		char_view<const char> v, _v;
 		char c, l, r, e;
 		void incr()
 		{
@@ -308,14 +308,14 @@ namespace fms::parse {
 		}
 	public:
 		using iterator_category = std::input_iterator_tag;
-		using value_type = char_view;
-		using reference = char_view&;
-		using pointer = char_view*;
+		using value_type = char_view<const char>;
+		using reference = char_view<const char>&;
+		using pointer = char_view<const char>*;
 		using difference_type = ptrdiff_t;
 
 		splitable()
 		{ }
-		splitable(const char_view& v, char c, char l = 0, char r = 0, char e = 0)
+		splitable(const char_view<const char>& v, char c, char l = 0, char r = 0, char e = 0)
 			: _v(v), c(c), l(l), r(r), e(e)
 		{
 			incr();
@@ -345,10 +345,10 @@ namespace fms::parse {
 		}
 		auto end() const
 		{
-			return splitable(char_view(_v.buf + _v.len, 0), c, r, l, e);
+			return splitable(char_view<const char>(_v.buf + _v.len, 0), c, r, l, e);
 		}
 
-		char_view operator*() const
+		value_type operator*() const
 		{
 			return v;
 		}
@@ -373,7 +373,7 @@ namespace fms::parse {
 		static int test()
 		{
 			{
-				char_view v("a,b,c");
+				char_view<const char> v("a,b,c");
 				splitable ss(v, ',');
 				char a = 'a';
 				for (const auto& s : ss) {
@@ -383,7 +383,7 @@ namespace fms::parse {
 				}
 			}
 			{
-				char_view v(" a\t,\rb, c\n");
+				char_view<const char> v(" a\t,\rb, c\n");
 				splitable ss(v, ',');
 				char a = 'a';
 				for (const auto& s : ss) {
@@ -393,7 +393,7 @@ namespace fms::parse {
 				}
 			}
 			{
-				char_view v("a\tb\tc");
+				char_view<const char> v("a\tb\tc");
 				splitable ss(v, '\t');
 				char a = 'a';
 				for (const auto& s : ss) {
@@ -403,7 +403,7 @@ namespace fms::parse {
 				}
 			}
 			{
-				char_view v("a{,}b,c ");
+				char_view<const char> v("a{,}b,c ");
 				splitable ss(v, ',', '{', '}');
 				assert((*ss).equal("a{,}b"));
 				++ss;
@@ -412,7 +412,7 @@ namespace fms::parse {
 				assert(!ss);
 			}
 			{
-				char_view v("a{\\}}b,c ");
+				char_view<const char> v("a{\\}}b,c ");
 				splitable ss(v, ',', '{', '}', '\\');
 				assert((*ss).equal("a{\\}}b"));
 				++ss;
@@ -422,7 +422,7 @@ namespace fms::parse {
 			}
 			{
 				// csv parsing
-				char_view v("a,b;c,d");
+				char_view<const char> v("a,b;c,d");
 				std::string s;
 				for (const auto& r : splitable(v, ';')) { // records
 					for (const auto& f : splitable(r, ',')) { // fields

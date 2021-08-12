@@ -15,7 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="fms_parse.cpp">
+    <ClCompile Include="fms_parse.t.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fms_view.t.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fms_char_view.t.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -153,27 +153,27 @@ namespace fms {
 				assert(!(v != v2));
 			}
 			{
-				char buf[] = "123";
-				view<const char> v(buf, 3);
+				T buf[] = { 1,2,3 };
+				view<T> v(buf, 3);
 				assert(v.len == 3);
-				assert(v.front() == '1');
-				assert(v.back() == '3');
+				assert(v.front() == 1);
+				assert(v.back() == 3);
 				auto v2{ v };
 				assert(v2 == v);
-				char i = '1';
+				int i = 1;
 				for (auto vi : v) {
 					assert(vi == i++);
 				}
 				v.drop(1);
-				assert(*v == '2');
+				assert(*v == buf[1]);
 				++v;
-				assert(*v == '3');
+				assert(*v == buf[2]);
 				v.drop(1);
 				assert(!v);
 			}
 			{
 				char buf[] = "123";
-				view<const char> v(buf, 3);
+				view<char> v(buf, 3);
 				v.take(2);
 				assert(v.len == 2);
 				assert(v.buf[0] == '1');
@@ -181,7 +181,7 @@ namespace fms {
 			}
 			{
 				char buf[] = "123";
-				view<const char> v(buf, 3);
+				view<char> v(buf, 3);
 				for (int i = 0; i < 3; ++i) {
 					assert(v[i] == buf[i]);
 				}

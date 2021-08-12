@@ -5,25 +5,28 @@
 
 namespace fms {
 
-	struct char_view : public view<const char> {
+	template<class T> // require std::is_same_v<char,remove_const<T>::value>> || wchar_t
+	struct char_view : public view<T> {
 		// bring in all constructors
-		using view<const char>::view;
+		using view<T>::view;
+		using view<T>::buf;
+		using view<T>::len;
 
 		char_view()
 		{ }
 		// chop null terminator
 		template<size_t N>
-		char_view(const char(&buf)[N])
-			: view(buf, static_cast<int>(N - 1))
+		char_view(T(&buf)[N])
+			: view<T>(buf, static_cast<int>(N - 1))
 		{ }
 		char_view(const char_view&) = default;
 		char_view& operator=(const char_view&) = default;
-		~char_view()
+		virtual ~char_view()
 		{ }
 
-		bool equal(const char* s) const
+		bool equal(T const* s) const
 		{
-			const char* b = buf;
+			T const* b = buf;
 
 			while (*s and b < buf + len) {
 				if (*s++ != *b++) {
@@ -33,72 +36,69 @@ namespace fms {
 
 			return *s == 0 and b == buf + len;
 		}
-		bool equal(const char* s, int n) const
+		bool equal(T const* s, int n) const
 		{
-			return len == n and 0 == strncmp(buf, s, n);
+			return view<T>::equal(char_view<T>(s, n));
 		}
 
 		// eat t or return error with view unchanged
-		char_view eat(char t)
+		bool eat(T t)
 		{
 			if (!len or *buf != t) {
-				return char_view(__FUNCTION__ ": indigestion", -1);
+				return false;
 			}
 
-			drop(1);
+			view<T>::drop(1);
 
-			return *this;
+			return true;
 		}
 		// eat null terminated s or return error with view unchanged
-		char_view eat(const char* s)
+		bool eat(T const* s)
 		{
 			char_view v_{ *this };
 
-			while (v_ and *s) {
-				v_ = v_.eat(*s++);
-			}
-
-			if (v_) {
-				if (*s != 0) {
-					v_.len = -1;
-					v_.buf = __FUNCTION__ ": still hungry";
-				}
-				else {
-					// ate everything
-					operator=(v_);
+			while (*s and v_) {
+				if (!v_.eat(*s++)) {
+					return false;
 				}
 			}
 
-			return v_ ? *this : v_;
+			if (*s != 0) {
+				return false;
+			}
+			else {
+				operator=(v_);
+			}
+
+			return true;
 		}
 		// eat n characters of s or return error with view unchanged
-		char_view eat(const char* s, int n)
+		bool eat(T const* s, int n)
 		{
 			char_view v_{ *this };
 
 			while (v_ and n) {
-				v_.eat(*s++);
+				if (!v_.eat(*s++)) {
+					return false;
+				}
 				--n;
 			}
 
-			if (v_) {
-				if (n != 0) {
-					v_.len = -1;
-					v_.buf = __FUNCTION__ ": still hungry";
-				}
-				else {
-					operator=(v_);
-				}
+			if (n != 0) {
+				return false;
+			}
+			else {
+				operator=(v_);
 			}
 
-			return v_ ? *this : v_;
+			return true;
 		}
 
 		// remove white space from beginning
 		char_view& wstrim()
 		{
-			while (len and std::isspace(front())) {
-				drop(1);
+			while (len and std::isspace(view<T>::front())) {
+				view<T>::drop(1);
 			}
 
 			return *this;
@@ -106,8 +106,8 @@ namespace fms {
 		// remove white space from end
 		char_view& trimws()
 		{
-			while (len and std::isspace(back())) {
-				drop(-1);
+			while (len and std::isspace(view<T>::back())) {
+				view<T>::drop(-1);
 			}
 
 			return *this;
@@ -118,15 +118,23 @@ namespace fms {
 		static int test()
 		{
 			{
-				char_view v("abc");
-				v.eat(v.front());
+				char_view<const char> v("abc");
+				assert(v.eat(v.front()));
 				assert(v);
 				assert(v.equal("bc"));
 				assert(!v.eat('c'));
 				assert(v.equal("bc"));
 			}
 			{
-				char_view v(" \tabc\n");
+				char_view<const wchar_t> v(L"abc");
+				assert(v.eat(v.front()));
+				assert(v);
+				assert(v.equal(L"bc"));
+				assert(!v.eat(L'c'));
+				assert(v.equal(L"bc"));
+			}
+			{
+				char_view<const char> v(" \tabc\n");
 				v.wstrim();
 				assert(v.equal("abc\n"));
 				v.wstrim();
@@ -142,36 +150,40 @@ namespace fms {
 #endif // _DEBUG
 	};
 
-	inline char_view eat(char_view v, char t)
+	template<class T>
+	inline char_view<T> eat(char_view<T> v, T t)
 	{
 		return v.eat(t);
 	}
-	inline char_view eat(char_view v, const char* s, int n = 0)
+	template<class T>
+	inline char_view<T> eat(char_view<T> v, const T* s, int n = 0)
 	{
 		return v.eat(s, n);
 	}
-	inline char_view wstrim(char_view v)
+	template<class T>
+	inline char_view<T> wstrim(char_view<T> v)
 	{
 		return v.wstrim();
 	}
 
 #ifdef _DEBUG
 
+	template<class T>
 	inline int eat_test()
 	{
 		{
-			char_view v("abc");
+			char_view<const T> v("abc");
 			assert(v.eat("ab"));
 			assert(v.equal("c"));
 		}
 		{
-			char_view v("abc");
+			char_view<const T> v("abc");
 			assert(!v.eat("ac"));
 			assert(v.equal("abc"));
 		}
 		{
-			char_view v("abc");
-			v = eat(v, "ac", 1);
+			char_view<const T> v("abc");
+			assert(v.eat("ac", 1));
 			assert(v);
 			assert(v.equal("bc"));
 		}

@@ -143,7 +143,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="fms_parse.cpp" />
+    <ClCompile Include="fms_char_view.t.cpp" />
+    <ClCompile Include="fms_parse.t.cpp" />
+    <ClCompile Include="fms_view.t.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fms_char_view.h" />
