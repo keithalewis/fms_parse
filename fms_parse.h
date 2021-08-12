@@ -304,7 +304,7 @@ namespace fms::parse {
 			if (!std::isspace(l)) {
 				_v.wstrim();
 			}
-			v = split(_v, c, l, r, e);
+			v = split<T>(_v, c, l, r, e);
 			if (!std::isspace(r)) {
 				v.trimws();
 			}
