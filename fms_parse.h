@@ -1,6 +1,7 @@
 // fms_parse.h - parse contiguous data
 // View based parsing. Return parsed value and advance view.
-// If len < 0 then view is an error with buf pointing at the error message
+// If len < 0 then view is an error with buf pointing at the error message.
+// The view is unchanged if there is an error.
 #pragma once
 #ifdef _DEBUG
 #include <cassert>
@@ -256,9 +257,10 @@ namespace fms::parse {
 #endif // _DEBUG
 
 	// return view up to c that is not quoted and advance v
-	inline char_view<const char> split(char_view<const char>& v, char c, char l, char r, char e)
+	template<class T>
+	inline char_view<T> split(char_view<T>& v, T c, T l, T r, T e)
 	{
-		char_view _v{ v };
+		char_view<T> _v{ v };
 
 		while (_v and *_v != c) {
 			if (*_v == l) {
@@ -282,7 +284,7 @@ namespace fms::parse {
 			++_v;
 		}
 
-		if (_v.len >= 0) {
+		if (!_v.is_error()) {
 			int n = static_cast<int>(_v.buf - v.buf);
 			std::swap(v.len, _v.len);
 			std::swap(v.buf, _v.buf);
@@ -293,9 +295,10 @@ namespace fms::parse {
 		return _v;
 	}
 
+	template<class T>
 	class splitable {
-		char_view<const char> v, _v;
-		char c, l, r, e;
+		char_view<T> v, _v;
+		T c, l, r, e;
 		void incr()
 		{
 			if (!std::isspace(l)) {
@@ -308,14 +311,14 @@ namespace fms::parse {
 		}
 	public:
 		using iterator_category = std::input_iterator_tag;
-		using value_type = char_view<const char>;
-		using reference = char_view<const char>&;
-		using pointer = char_view<const char>*;
+		using value_type = char_view<T>;
+		using reference = char_view<T>&;
+		using pointer = char_view<T>*;
 		using difference_type = ptrdiff_t;
 
 		splitable()
 		{ }
-		splitable(const char_view<const char>& v, char c, char l = 0, char r = 0, char e = 0)
+		splitable(const char_view<T>& v, T c, T l = 0, T r = 0, T e = 0)
 			: _v(v), c(c), l(l), r(r), e(e)
 		{
 			incr();
@@ -345,7 +348,7 @@ namespace fms::parse {
 		}
 		auto end() const
 		{
-			return splitable(char_view<const char>(_v.buf + _v.len, 0), c, r, l, e);
+			return splitable(char_view<T>(_v.buf + _v.len, 0), c, r, l, e);
 		}
 
 		value_type operator*() const
@@ -373,7 +376,8 @@ namespace fms::parse {
 		static int test()
 		{
 			{
-				char_view<const char> v("a,b,c");
+				char buf[] = "a,b,c";
+				char_view v(buf);
 				splitable ss(v, ',');
 				char a = 'a';
 				for (const auto& s : ss) {
@@ -383,7 +387,8 @@ namespace fms::parse {
 				}
 			}
 			{
-				char_view<const char> v(" a\t,\rb, c\n");
+				char buf[] = " a\t,\rb, c\n";
+				char_view v(buf);
 				splitable ss(v, ',');
 				char a = 'a';
 				for (const auto& s : ss) {
@@ -393,7 +398,8 @@ namespace fms::parse {
 				}
 			}
 			{
-				char_view<const char> v("a\tb\tc");
+				char buf[] = "a\tb\tc";
+				char_view v(buf);
 				splitable ss(v, '\t');
 				char a = 'a';
 				for (const auto& s : ss) {
@@ -403,7 +409,8 @@ namespace fms::parse {
 				}
 			}
 			{
-				char_view<const char> v("a{,}b,c ");
+				char buf[] = "a{,}b,c ";
+				char_view v(buf);
 				splitable ss(v, ',', '{', '}');
 				assert((*ss).equal("a{,}b"));
 				++ss;
@@ -412,7 +419,8 @@ namespace fms::parse {
 				assert(!ss);
 			}
 			{
-				char_view<const char> v("a{\\}}b,c ");
+				char buf[] = "a{\\}}b,c ";
+				char_view v(buf);
 				splitable ss(v, ',', '{', '}', '\\');
 				assert((*ss).equal("a{\\}}b"));
 				++ss;
@@ -422,7 +430,8 @@ namespace fms::parse {
 			}
 			{
 				// csv parsing
-				char_view<const char> v("a,b;c,d");
+				char buf[] = "a,b;c,d";
+				char_view v(buf);
 				std::string s;
 				for (const auto& r : splitable(v, ';')) { // records
 					for (const auto& f : splitable(r, ',')) { // fields

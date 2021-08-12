@@ -21,7 +21,7 @@ namespace fms {
 		{ }
 		char_view(const char_view&) = default;
 		char_view& operator=(const char_view&) = default;
-		virtual ~char_view()
+		~char_view()
 		{ }
 
 		bool equal(T const* s) const
@@ -35,10 +35,6 @@ namespace fms {
 			}
 
 			return *s == 0 and b == buf + len;
-		}
-		bool equal(T const* s, int n) const
-		{
-			return view<T>::equal(char_view<T>(s, n));
 		}
 
 		// eat t or return error with view unchanged

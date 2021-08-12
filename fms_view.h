@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <compare>
 //#include <concepts>
+#include <initializer_list>
 #include <iterator>
 
 namespace fms {
@@ -35,7 +36,7 @@ namespace fms {
 		{ }
 		view(const view&) = default;
 		view& operator=(const view&) = default;
-		~view()
+		virtual ~view()
 		{ }
 
 		bool is_error() const
@@ -47,9 +48,13 @@ namespace fms {
 			return len > 0;
 		}
 		auto operator<=>(const view& v) const = default;
-		bool equal(const view& v) const
+		bool equal(const view<T>& v) const
 		{
 			return len == v.len and std::equal(buf, buf + len, v.buf);
+		}
+		bool equal(T* t, int len) const
+		{
+			return equal(view<T>(t, len));
 		}
 
 		// STL friendly
@@ -170,6 +175,12 @@ namespace fms {
 				assert(*v == buf[2]);
 				v.drop(1);
 				assert(!v);
+			}
+			{
+				T buf[] = { 1,2,3 };
+				view<T> v(buf, 3);
+				assert(v.equal(buf, 3));
+				//assert(v.equal({ T(1),T(2),T(3) }));
 			}
 			{
 				char buf[] = "123";

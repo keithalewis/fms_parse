@@ -24,6 +24,12 @@
     <ClCompile Include="fms_char_view.t.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="win_mem_view.t.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fms_parse.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fms_parse.h">
@@ -33,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="fms_char_view.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="win_mem_view.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
