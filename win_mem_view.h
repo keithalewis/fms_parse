@@ -82,7 +82,7 @@ namespace win {
 				v.len = 3;
 				std::iota(v.begin(), v.end(), T(1));
 				for (int i = 0; i < 3; ++i) {
-					assert(v[i] == T(i + 1));
+					assert(v[i] == T(i) + T(1));
 				}
 			}
 
