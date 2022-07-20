@@ -1,5 +1,6 @@
 // win_mem_view.h - view of memory mapped file
-#pragma once
+#ifndef WIN_MEM_VIEW_INCLUDED
+#define WIN_MEM_VIEW_INCLUDED
 #ifdef _DEBUG
 #include <cassert>
 #include <algorithm>
@@ -93,3 +94,5 @@ namespace win {
 	};
 
 } // namespace xll
+
+#endif // WIN_MEM_VIEW_INCLUDED
