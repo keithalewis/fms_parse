@@ -2,7 +2,12 @@
 // View based parsing. Return parsed value and advance view.
 // If len < 0 then view is an error with buf pointing at the error message.
 // The view is unchanged if there is an error.
-#pragma once
+#ifndef FMS_PARSE_INCLUDED
+#define FMS_PARSE_INCLUDED
+
+#include "fms_view.h"
+
+#if 0
 #ifdef _DEBUG
 #include <cassert>
 #include <string>
@@ -450,3 +455,5 @@ namespace fms::parse {
 	};
 
 } // namespace fms::parse
+#endif // 0
+#endif // FMS_PARSE_INCLUDED

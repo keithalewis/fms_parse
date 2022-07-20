@@ -18,18 +18,6 @@
     <ClCompile Include="fms_parse.t.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fms_view.t.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fms_char_view.t.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="win_mem_view.t.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="fms_parse.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fms_parse.h">

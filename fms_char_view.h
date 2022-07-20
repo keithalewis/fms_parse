@@ -1,5 +1,6 @@
 // fms_char_view.h - view of contiguous characters
-#pragma once
+#ifndef FMS_CHAR_VIEW_INCLUDED
+#define FMS_CHAR_VIEW_INCLUDED
 #include "fms_view.h"
 #include <cctype>
 
@@ -191,3 +192,5 @@ namespace fms {
 
 
 } // namespace fms
+
+#endif // FMS_CHAR_VIEW_INCLUDED

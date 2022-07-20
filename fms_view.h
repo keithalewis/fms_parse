@@ -1,8 +1,6 @@
 // fms_view.h - non-owning view of contiguous data
-#pragma once
-#ifdef _DEBUG
-#include <cassert>
-#endif
+#ifndef FMS_VIEW_INCLUDED
+#define FMS_VIEW_INCLUDED
 #include <algorithm>
 #include <compare>
 //#include <concepts>
@@ -39,30 +37,30 @@ namespace fms {
 		virtual ~view()
 		{ }
 
-		bool is_error() const
+		bool is_error() const noexcept
 		{
 			return len < 0;
 		}
-		explicit operator bool() const
+		explicit operator bool() const noexcept
 		{
 			return len > 0;
 		}
-		auto operator<=>(const view& v) const = default;
-		bool equal(const view<T>& v) const
+		auto operator <=>(const view& v) const = default;
+		bool equal(const view<T>& v) const noexcept
 		{
 			return len == v.len and std::equal(buf, buf + len, v.buf);
 		}
-		bool equal(T* t, int len) const
+		bool equal(T* t, int len) const noexcept
 		{
 			return equal(view<T>(t, len));
 		}
 
 		// STL friendly
-		view begin() const
+		view begin() const noexcept
 		{
 			return *this;
 		}
-		view end() const
+		view end() const noexcept
 		{
 			return view(buf + len, 0);
 		}
@@ -75,7 +73,7 @@ namespace fms {
 		{
 			return buf[0];
 		}
-		view& operator++()
+		view& operator++() noexcept
 		{
 			if (len > 0) {
 				++buf;
@@ -84,7 +82,7 @@ namespace fms {
 
 			return *this;
 		}
-		view operator++(int)
+		view operator++(int) noexcept
 		{
 			view v_(*this);
 
@@ -110,13 +108,21 @@ namespace fms {
 		{
 			return buf[0];
 		}
+		T& front()
+		{
+			return buf[0];
+		}
 		T back() const
+		{
+			return buf[len - 1];
+		}
+		T& back()
 		{
 			return buf[len - 1];
 		}
 
 		// drop first (n > 0) or last (n < 0) items
-		view& drop(int n)
+		view& drop(int n) noexcept
 		{
 			n = std::clamp(n, -len, len);
 
@@ -132,7 +138,7 @@ namespace fms {
 		}
 
 		// take first (n > 0) or last (n < 0) items
-		view& take(int n)
+		view& take(int n) noexcept
 		{
 			n = std::clamp(n, -len, len);
 
@@ -250,3 +256,5 @@ namespace fms {
 	}
 
 } // namespace fms
+
+#endif // FMS_VIEW_INCLUDED
