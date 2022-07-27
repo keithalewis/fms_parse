@@ -150,6 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="fms_char_view.h" />
+    <ClInclude Include="fms_json.h" />
     <ClInclude Include="fms_parse_split.h" />
     <ClInclude Include="win_mem_view.h" />
     <ClInclude Include="fms_parse.h" />

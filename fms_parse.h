@@ -5,8 +5,10 @@
 #ifndef FMS_PARSE_INCLUDED
 #define FMS_PARSE_INCLUDED
 
+#include <cstdlib>
 #include "fms_char_view.h"
 #include "fms_parse_split.h"
+#include "fms_json.h"
 #ifdef _MSC_VER
 #include "win_mem_view.h"
 #endif
