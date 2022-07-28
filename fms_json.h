@@ -3,11 +3,14 @@
 #define FMS_JSON_INCLUDED
 
 #include <cstdlib>
+#include <map>
+#include <vector>
+#include <variant>
 #include "fms_char_view.h"
 
 namespace fms::json {
 
-	template<class V, class T>
+	template<class T, class V>
 	inline V parse(char_view<T>& v)
 	{
 		v.wstrim();
@@ -16,6 +19,8 @@ namespace fms::json {
 			return V{};
 		}
 		if (*v == '{') {
+			v.eat('{');
+			v.wstrim();
 			return V(parse_object(v));
 		}
 		if (*v == '[') {
@@ -25,7 +30,7 @@ namespace fms::json {
 			return V(parse_string(v));
 		}
 		if (is_null(v)) {
-			return V(nullptr);
+			return V{};
 		}
 		if (is_true(v)) {
 			return V(true);
@@ -37,18 +42,154 @@ namespace fms::json {
 		return V(parse_number(v));
 	}
 
+#ifdef NULL
+#undef NULL
+#endif
+	enum class type { NULL, OBJECT, ARRAY, STRING, NUMBER, BOOLEAN };
+
+	struct value;
+	using member = std::pair<std::string, value>;
+	using object = std::map<std::string, value>;
+	using array = std::vector<value>;
+	using string = std::string;
+	using number = double;
+	using boolean = bool;
+	using null = struct {};
+
+	// JSON value
+	struct value : public std::variant<null, object, array, string, number, boolean> {
+		using var = std::variant<null, object, array, string, number, boolean>;
+		constexpr value() noexcept
+			: var(null{})
+		{ }
+		constexpr value(const object& o) // noexcept(...o... exceptions?)
+			: var{ o }
+		{ }
+		constexpr value(const array& a)
+			: var{ a }
+		{ }
+		constexpr value(const string& s)
+			: var{ s }
+		{ }
+		constexpr value(const char* s)
+			: var{ string(s) }
+		{ }
+		constexpr value(const char_view<const char>& v)
+			: var{ string(v.buf, v.buf + v.len) }
+		{ }
+		bool operator==(const string& s) const
+		{
+			return type::STRING == type() and std::get<string>(*this) == s;
+		}
+		bool operator==(const char* s) const
+		{
+			return type::STRING == type() and std::get<string>(*this) == s;
+		}
+		explicit operator std::string& ()
+		{
+			return std::get<string>(*this);
+		}
+		explicit operator const std::string& () const
+		{
+			return std::get<string>(*this);
+		}
+		constexpr value(const number& n)
+			: var{ n }
+		{ }
+		bool operator==(const number& n) const
+		{
+			return type::NUMBER == type() and std::get<number>(*this) == n;
+		}
+		explicit operator number& ()
+		{
+			return std::get<number>(*this);
+		}
+		explicit operator const number& () const
+		{
+			return std::get<number>(*this);
+		}
+		constexpr value(const boolean& b)
+			: var{ b }
+		{ }
+		bool operator==(const bool& b) const
+		{
+			return type::BOOLEAN == type() and std::get<boolean>(*this) == b;
+		}
+		explicit operator boolean& ()
+		{
+			return std::get<boolean>(*this);
+		}
+		explicit operator const boolean& () const
+		{
+			return std::get<boolean>(*this);
+		}
+		value(const value&) = default;
+		value(value&&) = default;
+		value& operator=(const value&) = default;
+		value& operator=(value&&) = default;
+		~value() = default;
+
+		enum type type() const
+		{
+			return fms::json::type(var::index());
+		}
+	};
+
+#ifdef _DEBUG
+	inline int value_test()
+	{
+		{
+			value v;
+			assert(type::NULL == v.type());
+		}
+		{
+			value v(true);
+			assert(type::BOOLEAN == v.type());
+			assert(true == std::get<bool>(v));
+			assert(true == std::get<type::BOOLEAN>(v));
+		}
+		{
+			value v(1.);
+			assert(type::NUMBER == v.type());
+			assert(1 == std::get<double>(v));
+			assert(1 == std::get<number>(v));
+		}
+		{
+			value v("string");
+			assert(type::STRING == v.type());
+			assert(std::get<string>(v) == "string");
+		}
+		{
+			char_view s("string");
+			value v(s);
+			assert(type::STRING == v.type());
+			assert(std::get<string>(v) == "string");
+		}
+		{
+			value v(std::vector{ value(false), value(1.2), value("str") });
+			assert(type::ARRAY == v.type());
+			assert(!std::get<array>(v)[0]);
+			assert(1.2 == std::get<array>(v)[1]);
+			assert(std::get<array>(v)[2] == "str");
+		}
+		{
+			value v(std::vector<value>{ false, 1.2, "str" });
+		}
+
+		return 0;
+	}
+#endif // _DEBUG
+
+	// eat characters and ensure whitespace terminated
 	template<class T>
 	inline bool eat_chars(char_view<T>& v, const char* s, int n)
 	{
 		char_view<T> v_(v);
 
-		while (v_ and n) {
-			if (*v_ != *s) {
+		while (v_ and n--) {
+			if (*v_++ != *s++) {
 				return false;
 			}
-			++v_;
-			++s;
-			--n;
 		}
 		if (v_ and !::isspace(*v_)) {
 			return false;
@@ -222,7 +363,7 @@ namespace fms::json {
 #undef PARSE_NUMBER_TEST
 #endif // _DEBUG
 
-	// "str\"ing" -> str\"ing
+	// "str\\\"ing" -> str\\\"ing
 	template<class T>
 	inline char_view<T> parse_string(char_view<T>& v)
 	{
@@ -283,10 +424,54 @@ namespace fms::json {
 			assert(v.equal("\to\""));
 			assert(s.equal("f"));
 		}
+		/*
+		{
+			value o;
+			char_view v("1.23");
+			o = parse<value>(v);
+		}
+		*/
 
 		return 0;
 	}
 #endif // _DEBUG
+	// "string" : value
+	template<class T>
+	inline member parse_member(char_view<T>& v)
+	{
+		char_view<T> v_(v);
+
+		auto key = parse_string(v_);
+		if (!key.is_error()) {
+			v_.wstrim();
+			if (v_.eat(':')) {
+				v_.wstrim();
+				auto val = parse(v_);
+				v = v_;
+				return { std::string(key.buf, key.buf + key.len), val };
+			}
+		}
+
+		return member{};
+	}
+	template<class T>
+	inline object parse_object(char_view<T>& v)
+	{
+		object o;
+
+		o.insert(parse_member(v));
+		while (v.wstrim() and *v == ',') {
+			v.eat(',');
+			o.insert(parse_member(v));
+		}
+
+		return o;
+	}
+	template<class T>
+	inline array parse_array(char_view<T>& v)
+	{
+		return array{};
+	}
 }
 
 #endif // FMS_JSON_INCLUDED
