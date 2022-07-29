@@ -52,30 +52,24 @@ namespace fms::json {
 	{
 		char_view<T> v_(v);
 
-		v_.wstrim();
-		if (v_.eat('"')) {
-			while (v_ and *v_ != '"') {
-				if (*v_ == '\\') {
-					++v_;
-					if (v_ and *v_ == '"') {
-						++v_;
-					}
-				}
-				else {
+		while (v_ and *v_ != '"') {
+			if (*v_ == '\\') {
+				++v_;
+				if (v_ and *v_ == '"') {
 					++v_;
 				}
 			}
-			if (v_.eat('"')) {
-				std::swap(v, v_);
-				v_.take(v.buf - v_.buf - 1).drop(1);
-
-				if (!v or ::isspace(*v)) {
-					return String(v_.buf, v_.len);
-				}
+			else {
+				++v_;
 			}
 		}
+		if (v_ and *v_ == '"') {
+			std::swap(v, v_);
+			v_.take(v.buf - v_.buf);
+		}
+		// else throw
 
-		return String{};
+		return String(v_.buf, v_.len);
 	}
 
 	template<class T, class Number>
@@ -209,7 +203,9 @@ namespace fms::json {
 				v.eat(']');
 			}
 			else if (*v == '"') {
+				v.eat('"');
 				val = parse_string(v);
+				v.eat('"');
 			}
 			else if (is_null(v)) {
 				; // default object
@@ -442,27 +438,27 @@ namespace fms::json {
 	inline int parse_string_test()
 	{
 		{
-			char_view v("\"foo\"");
+			char_view v("foo\"");
 			string s = parse_string<const char,string>(v);
 			assert(s==("foo"));
-			assert(!v);
+			assert(v and *v == '"');
 		}
 		{
-			char_view v("\"f\\\"o\"");
+			char_view v("f\\\"o\"");
 			auto s = parse_string<const char, string>(v);
 			assert(s==("f\\\"o"));
-			assert(!v);
+			assert(v and *v == '"');
 		}
 		{
-			char_view v("\"f\"o\"");
+			char_view v("f\"o\"");
 			string s = parse_string<const char, string>(v);
-			assert(v.equal("o\""));
+			assert(v.equal("\"o\""));
 			//assert(s.is_error());
 		}
 		{
-			char_view v("\"f\"\to\"");
+			char_view v("f\"\to\"");
 			auto s = parse_string<const char, string>(v);
-			assert(v.equal("\to\""));
+			assert(v.equal("\"\to\""));
 			assert(s==("f"));
 		}
 		/*
