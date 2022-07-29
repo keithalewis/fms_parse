@@ -2,6 +2,7 @@
 #include <cassert>
 #include <string>
 #include "fms_parse.h"
+#include "fms_json.h"
 
 #ifdef FMS_VIEW_INCLUDED
 int test_fms_view_char = fms::view<char>::test();

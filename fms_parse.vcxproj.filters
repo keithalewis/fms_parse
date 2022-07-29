@@ -35,6 +35,9 @@
     <ClInclude Include="fms_parse_split.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="fms_parse_json.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="fms_json.h">
       <Filter>Header Files</Filter>
     </ClInclude>

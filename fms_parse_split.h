@@ -8,52 +8,52 @@ namespace fms::parse {
 	template<class T>
 	inline char_view<T> split(char_view<T>& v, T c, T l, T r, T e)
 	{
-		char_view<T> _v{ v };
+		char_view<T> v_{ v };
 
-		while (_v and *_v != c) {
-			if (*_v == l) {
+		while (v_ and *v_ != c) {
+			if (*v_ == l) {
 				int level = 1;
-				while (++_v and level) {
-					if (*_v == r) {
+				while (++v_ and level) {
+					if (*v_ == r) {
 						--level;
 					}
-					else if (*_v == l) {
+					else if (*v_ == l) {
 						++level;
 					}
-					else if (*_v == e) {
-						++_v;
+					else if (*v_ == e) {
+						++v_;
 					}
 				}
 				if (level != 0) {
-					_v.len = -1;
-					//_v.buf points to last char parsed;
+					v_.len = -1;
+					//v_.buf points to last char parsed;
 				}
 			}
-			++_v;
+			++v_;
 		}
 
-		if (!_v.is_error()) {
-			int n = static_cast<int>(_v.buf - v.buf);
-			std::swap(v.len, _v.len);
-			std::swap(v.buf, _v.buf);
-			_v.take(n);
+		if (!v_.is_error()) {
+			int n = static_cast<int>(v_.buf - v.buf);
+			std::swap(v.len, v_.len);
+			std::swap(v.buf, v_.buf);
+			v_.take(n);
 			v.drop(1); // drop c
 		}
 
-		return _v;
+		return v_;
 	}
 
 	// split iterator
 	template<class T>
 	class splitable {
-		char_view<T> v, _v;
+		char_view<T> v, v_;
 		T c, l, r, e;
 		void incr()
 		{
 			if (!std::isspace(l)) {
-				_v.wstrim();
+				v_.wstrim();
 			}
-			v = split<T>(_v, c, l, r, e);
+			v = split<T>(v_, c, l, r, e);
 			if (!std::isspace(r)) {
 				v.trimws();
 			}
@@ -68,7 +68,7 @@ namespace fms::parse {
 		splitable()
 		{ }
 		splitable(const char_view<T>& v, T c, T l = 0, T r = 0, T e = 0)
-			: _v(v), c(c), l(l), r(r), e(e)
+			: v_(v), c(c), l(l), r(r), e(e)
 		{
 			incr();
 		}
@@ -97,7 +97,7 @@ namespace fms::parse {
 		}
 		auto end() const
 		{
-			return splitable(char_view<T>(_v.buf + _v.len, 0), c, r, l, e);
+			return splitable(char_view<T>(v_.buf + v_.len, 0), c, r, l, e);
 		}
 
 		value_type operator*() const
