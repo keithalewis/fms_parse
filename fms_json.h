@@ -9,7 +9,13 @@
 
 namespace fms::json {
 
-	enum class type { NULL, OBJECT, ARRAY, STRING, NUMBER, BOOLEAN };
+#define FMS_JSON_TYPE(X) X(NULL) X(OBJECT) X(ARRAY) X(STRING) X(NUMBER) X(BOOLEAN)
+
+#define FMS_JSON_ENUM(x) x,
+	enum class type {
+		FMS_JSON_TYPE(FMS_JSON_ENUM)
+	};
+#undef FMS_JSON_ENUM
 
 	struct value;
 	using member = std::pair<std::string, value>;
@@ -18,22 +24,16 @@ namespace fms::json {
 	using string = std::string;
 	using number = double;
 	using boolean = bool;
-	using null = struct {};
+	struct null {
+		bool operator==(const null&) const { return true; }
+	};
 
 	// JSON value
 	struct value : public std::variant<null, object, array, string, number, boolean> {
 		using var = std::variant<null, object, array, string, number, boolean>;
+		using var::var;
 		constexpr value() noexcept
 			: var(null{})
-		{ }
-		constexpr value(const object& o) // noexcept(...o... exceptions?)
-			: var{ o }
-		{ }
-		constexpr value(const array& a)
-			: var{ a }
-		{ }
-		constexpr value(const string& s)
-			: var{ s }
 		{ }
 		constexpr value(const char* s)
 			: var{ string(s) }
@@ -41,14 +41,6 @@ namespace fms::json {
 		constexpr value(const char_view<const char>& v)
 			: var{ string(v.buf, v.buf + v.len) }
 		{ }
-		bool operator==(const string& s) const
-		{
-			return type::STRING == type() and std::get<string>(*this) == s;
-		}
-		bool operator==(const char* s) const
-		{
-			return type::STRING == type() and std::get<string>(*this) == s;
-		}
 		explicit operator std::string& ()
 		{
 			return std::get<string>(*this);
@@ -57,8 +49,11 @@ namespace fms::json {
 		{
 			return std::get<string>(*this);
 		}
-		constexpr value(const number& n)
+		explicit constexpr value(const number& n)
 			: var{ n }
+		{ }
+		explicit constexpr value(const int& n)
+			: var{ 1.*n }
 		{ }
 		bool operator==(const number& n) const
 		{
@@ -75,10 +70,6 @@ namespace fms::json {
 		constexpr value(const boolean& b)
 			: var{ b }
 		{ }
-		bool operator==(const bool& b) const
-		{
-			return type::BOOLEAN == type() and std::get<boolean>(*this) == b;
-		}
 		explicit operator boolean& ()
 		{
 			return std::get<boolean>(*this);
@@ -93,9 +84,51 @@ namespace fms::json {
 		value& operator=(value&&) = default;
 		~value() = default;
 
-		enum type type() const
+		enum class type type() const
 		{
-			return fms::json::type(var::index());
+			return fms::json::type(this->index());
+		}
+
+		bool operator==(const value& v) const
+		{
+			if (type() != v.type()) {
+				return false;
+			}
+#define FMS_JSON_CASE(x) case type::x : \
+	return std::get<static_cast<std::size_t>(type::x)>(*this) == std::get<static_cast<std::size_t>(type::x)>(v);
+			switch (type()) {
+				FMS_JSON_TYPE(FMS_JSON_CASE)
+			}
+#undef FMS_JSON_CASE
+			return true;
+		}
+
+		// object access
+		value& operator[](const string& key)
+		{
+			return std::get<object>(*this)[key];
+		}
+		value& operator[](const char* key)
+		{
+			return std::get<object>(*this)[key];
+		}
+		const value& operator[](const string& key) const
+		{
+			return std::get<object>(*this).at(key);
+		}
+		const value& operator[](const char* key) const
+		{
+			return std::get<object>(*this).at(key);
+		}
+
+		// array access
+		value& operator[](std::size_t i)
+		{
+			return std::get<array>(*this)[i];
+		}
+		const value& operator[](std::size_t i) const
+		{
+			return std::get<array>(*this)[i];
 		}
 	};
 
@@ -105,21 +138,47 @@ namespace fms::json {
 		{
 			value v;
 			assert(type::NULL == v.type());
+			auto v2{ v };
+			assert(v == v2);
+			v = v2;
+			assert(!(v2 != v));
 		}
 		{
 			value v(true);
+			auto v2{ v };
+			assert(v == v2);
+			v = v2;
+			assert(!(v2 != v));
 			assert(type::BOOLEAN == v.type());
 			assert(true == std::get<bool>(v));
-			assert(true == std::get<type::BOOLEAN>(v));
+			assert(true == std::get<(std::size_t)type::BOOLEAN>(v));
 		}
 		{
 			value v(1.);
+			auto v2{ v };
+			assert(v == v2);
+			v = v2;
+			assert(!(v2 != v));
+			assert(type::NUMBER == v.type());
+			assert(1 == std::get<double>(v));
+			assert(1 == std::get<number>(v));
+		}
+		{
+			value v(1);
+			auto v2{ v };
+			assert(v == v2);
+			v = v2;
+			assert(!(v2 != v));
 			assert(type::NUMBER == v.type());
 			assert(1 == std::get<double>(v));
 			assert(1 == std::get<number>(v));
 		}
 		{
 			value v("string");
+			auto v2{ v };
+			assert(v == v2);
+			v = v2;
+			assert(!(v2 != v));
 			assert(type::STRING == v.type());
 			assert(std::get<string>(v) == "string");
 		}
@@ -130,14 +189,32 @@ namespace fms::json {
 			assert(std::get<string>(v) == "string");
 		}
 		{
-			value v(std::vector{ value(false), value(1.2), value("str") });
+			value v(array{ value(false), value(1.2), value("str") });
+			auto v2{ v };
+			assert(v == v2);
+			v = v2;
+			assert(!(v2 != v));
 			assert(type::ARRAY == v.type());
 			assert(!std::get<array>(v)[0]);
 			assert(1.2 == std::get<array>(v)[1]);
 			assert(std::get<array>(v)[2] == "str");
 		}
 		{
-			value v(std::vector<value>{ false, 1.2, "str" });
+			value v(object({
+				{ "a", value(1.2) },
+				{ "b", value(false) },
+				{ "c", value(object({{"d", value("foo")}})) },
+				{ "e", value(array({value(1), value(true), value("baz")}))}
+				}));
+			auto va = std::get<object>(v)["a"];
+			assert(1.2 == va);
+			assert(1.2 == v["a"]);
+			v["a"] = "bar";
+			assert(v["a"] == "bar");
+			assert(v["c"]["d"] == "foo");
+			v["c"]["d"] = v;
+			assert(v["c"]["d"]["a"] == "bar");
+			assert(v["e"][2] == "baz");
 		}
 
 		return 0;
