@@ -3,6 +3,7 @@
 #define FMS_PARSE_JSON_INCLUDED
 
 #include <cstdlib>
+#include <cmath>
 //#include <concepts>
 #include <map>
 #include <string>
@@ -135,7 +136,7 @@ namespace fms::json {
 		}
 		e *= integer(v);
 
-		return Number(v and !::isspace(*v) ? NaN : sgn * x * pow(10, e));
+		return Number(v and !::isspace(*v) ? NaN : sgn * x * std::pow(10, e));
 	}
 
 	template<class T, class String, class Value>
@@ -279,7 +280,7 @@ namespace fms::json {
 		{
 			char_view v("1x");
 			double x = parse_number<const char, double>(v);
-			assert(isnan(x));
+			assert(std::isnan(x));
 			assert(v.equal("x"));
 		}
 		{

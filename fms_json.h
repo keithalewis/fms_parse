@@ -84,7 +84,7 @@ namespace fms::json {
 		value& operator=(value&&) = default;
 		~value() = default;
 
-		enum class type type() const
+		enum type type() const
 		{
 			return fms::json::type(this->index());
 		}
