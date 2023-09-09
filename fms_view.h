@@ -18,24 +18,24 @@ namespace fms {
 	template<class T>
 	struct view {
 		T* buf;
-		int len;
+		long len;
 
 		using iterator_category = std::input_iterator_tag;
 		using value_type = T;
-		using reference = T&;
-		using pointer = T*;
+		using reference = value_type&;
+		using pointer = value_type*;
 		using difference_type = ptrdiff_t;
 
 		view() noexcept
 			: buf(nullptr), len(0)
 		{ }
-		view(T* buf, int len) noexcept
+		view(T* buf, long len) noexcept
 			: buf(buf), len(len)
 		{ }
 		view(const view&) = default;
 		view& operator=(const view&) = default;
-		virtual ~view()
-		{ }
+		//virtual ~view()
+		//{ }
 
 		bool is_error() const noexcept
 		{
@@ -45,14 +45,9 @@ namespace fms {
 		{
 			return len > 0;
 		}
-		auto operator <=>(const view& v) const = default;
-		bool equal(const view<T>& v) const noexcept
+		bool operator==(const view& v) const
 		{
 			return len == v.len and std::equal(buf, buf + len, v.buf);
-		}
-		bool equal(T* t, int len) const noexcept
-		{
-			return equal(view<T>(t, len));
 		}
 
 		// STL friendly
@@ -86,20 +81,17 @@ namespace fms {
 		{
 			view v_(*this);
 
-			if (len > 0) {
-				++buf;
-				--len;
-			}
+			operator++();
 
 			return v_;
 		}
 
 		// no bounds checking
-		T operator[](int n) const
+		value_type operator[](int n) const
 		{
 			return buf[n];
 		}
-		T& operator[](int n)
+		reference operator[](int n)
 		{
 			return buf[n];
 		}
@@ -122,7 +114,7 @@ namespace fms {
 		}
 
 		// drop first (n > 0) or last (n < 0) items
-		view& drop(int n) noexcept
+		view& drop(long n) noexcept
 		{
 			n = std::clamp(n, -len, len);
 
@@ -138,7 +130,7 @@ namespace fms {
 		}
 
 		// take first (n > 0) or last (n < 0) items
-		view& take(int n) noexcept
+		view& take(long n) noexcept
 		{
 			n = std::clamp(n, -len, len);
 
@@ -156,36 +148,37 @@ namespace fms {
 		static int test()
 		{
 			{
-				view<char> v;
+				view<T> v;
 				assert(!v);
 				auto v2{ v };
 				assert(v2 == v);
-				v = v2;
-				assert(!(v != v2));
+				auto v3 = v2;
+				assert(!(v3 != v2));
 			}
 			{
-				T buf[] = { 1,2,3 };
+				static T buf[] = { 1,2,3 };
 				view<T> v(buf, 3);
 				assert(v.len == 3);
 				assert(v.front() == 1);
 				assert(v.back() == 3);
 				auto v2{ v };
-				assert(v2 == v);
+				assert(v2.operator==(v));
 				int i = 1;
 				for (auto vi : v) {
 					assert(vi == i++);
 				}
-				v.drop(1);
-				assert(*v == buf[1]);
-				++v;
-				assert(*v == buf[2]);
-				v.drop(1);
-				assert(!v);
+				view v3 = v;
+				v3.drop(1);
+				assert(*v3 == buf[1]);
+				++v3;
+				assert(*v3 == buf[2]);
+				v3.drop(1);
+				assert(!v3);
 			}
 			{
 				T buf[] = { 1,2,3 };
 				view<T> v(buf, 3);
-				assert(v.equal(buf, 3));
+				assert(v == view(buf, 3));
 				//assert(v.equal({ T(1),T(2),T(3) }));
 			}
 			{
@@ -215,15 +208,15 @@ namespace fms {
 
 				auto vt{ v };
 				vt.take(10);
-				assert(vt.equal(v));
+				assert(vt == v);
 				vt.take(-10);
-				assert(vt.equal(v));
+				assert(vt == v);
 				vt.take(0);
 				assert(!vt);
 
 				auto vd{ v };
 				vd.drop(0);
-				assert(vd.equal(v));
+				assert(vd == v);
 				vd.drop(10);
 				assert(!vt);
 				vd = v;
@@ -238,19 +231,19 @@ namespace fms {
 	};
 
 	template<class T>
-	inline bool equal(const view<T>& v, const view<T>& w)
+	inline bool operator==(const view<T>& v, const view<T>& w)
 	{
-		return v.equal(w);
+		return v == w;
 	}
 
 	template<class T>
-	inline view<T> drop(view<T> v, int n)
+	inline view<T> drop(long n, view<T> v)
 	{
 		return v.drop(n);
 	}
 
 	template<class T>
-	inline view<T> take(view<T> v, int n)
+	inline view<T> take(long n, view<T> v)
 	{
 		return v.take(n);
 	}
