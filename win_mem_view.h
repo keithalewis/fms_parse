@@ -37,7 +37,7 @@ namespace win {
 		mem_view(HANDLE h_ = INVALID_HANDLE_VALUE, DWORD len = 1 << 20)
 			: h(CreateFileMapping(h_, 0, PAGE_READWRITE, 0, len*sizeof(T), nullptr))
 		{
-			if (h != NULL) {
+			if (h != nullptr) {
 				len = 0;
 				buf = (T*)MapViewOfFile(h, FILE_MAP_ALL_ACCESS, 0, 0, len * sizeof(T));
 			}
@@ -52,7 +52,7 @@ namespace win {
 
 		explicit operator bool() const
 		{
-			return h != NULL;
+			return h != nullptr;
 		}
 
 		// Write to buffered memory.
