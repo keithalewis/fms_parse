@@ -26,49 +26,62 @@ namespace fms {
 		using pointer = value_type*;
 		using difference_type = ptrdiff_t;
 
-		view() noexcept
+		constexpr view() noexcept
 			: buf(nullptr), len(0)
 		{ }
-		view(T* buf, long len) noexcept
+		constexpr view(T* buf, long len) noexcept
 			: buf(buf), len(len)
 		{ }
-		view(const view&) = default;
-		view& operator=(const view&) = default;
-		//virtual ~view()
-		//{ }
+		constexpr view(const view&) = default;
+		constexpr view& operator=(const view&) = default;
+		constexpr virtual ~view()
+		{ }
 
-		bool is_error() const noexcept
+		constexpr bool is_error() const noexcept
 		{
 			return len < 0;
 		}
-		explicit operator bool() const noexcept
+		constexpr explicit operator bool() const noexcept
 		{
 			return len > 0;
 		}
-		bool operator==(const view& v) const
+		constexpr bool operator==(const view& v) const
+		{
+			return len == v.len and buf == v.buf;
+		}
+		// equal contents
+		constexpr bool equal(const view& v) const
 		{
 			return len == v.len and std::equal(buf, buf + len, v.buf);
 		}
 
 		// STL friendly
-		view begin() const noexcept
+		constexpr view begin() noexcept
 		{
 			return *this;
 		}
-		view end() const noexcept
+		constexpr view begin() const noexcept
+		{
+			return *this;
+		}
+		constexpr view end() noexcept
+		{
+			return view(buf + len, 0);
+		}
+		constexpr view end() const noexcept
 		{
 			return view(buf + len, 0);
 		}
 
-		value_type operator*() const
+		constexpr value_type operator*() const
 		{
 			return buf[0];
 		}
-		reference operator*()
+		constexpr reference operator*()
 		{
 			return buf[0];
 		}
-		view& operator++() noexcept
+		constexpr view& operator++() noexcept
 		{
 			if (len > 0) {
 				++buf;
@@ -77,7 +90,7 @@ namespace fms {
 
 			return *this;
 		}
-		view operator++(int) noexcept
+		constexpr view operator++(int) noexcept
 		{
 			view v_(*this);
 
@@ -87,34 +100,34 @@ namespace fms {
 		}
 
 		// no bounds checking
-		value_type operator[](int n) const
+		constexpr value_type operator[](int n) const
 		{
 			return buf[n];
 		}
-		reference operator[](int n)
+		constexpr reference operator[](int n)
 		{
 			return buf[n];
 		}
 
-		T front() const
+		constexpr T front() const
 		{
 			return buf[0];
 		}
-		T& front()
+		constexpr T& front()
 		{
 			return buf[0];
 		}
-		T back() const
+		constexpr T back() const
 		{
 			return buf[len - 1];
 		}
-		T& back()
+		constexpr T& back()
 		{
 			return buf[len - 1];
 		}
 
 		// drop first (n > 0) or last (n < 0) items
-		view& drop(long n) noexcept
+		constexpr view& drop(long n) noexcept
 		{
 			n = std::clamp(n, -len, len);
 
@@ -130,7 +143,7 @@ namespace fms {
 		}
 
 		// take first (n > 0) or last (n < 0) items
-		view& take(long n) noexcept
+		constexpr view& take(long n) noexcept
 		{
 			n = std::clamp(n, -len, len);
 

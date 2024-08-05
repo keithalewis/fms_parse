@@ -13,19 +13,19 @@ namespace fms {
 		using view<T>::buf;
 		using view<T>::len;
 
-		char_view()
+		constexpr char_view()
 		{ }
 		// chop null terminator
 		template<size_t N>
-		char_view(T(&buf)[N])
+		constexpr char_view(T(&buf)[N])
 			: view<T>(buf, static_cast<int>(N - 1))
 		{ }
-		char_view(const char_view&) = default;
-		char_view& operator=(const char_view&) = default;
-		~char_view()
+		constexpr char_view(const char_view&) = default;
+		constexpr char_view& operator=(const char_view&) = default;
+		constexpr ~char_view()
 		{ }
 
-		bool equal(T const* s) const
+		constexpr bool equal(T const* s) const
 		{
 			T const* b = buf;
 
@@ -39,7 +39,7 @@ namespace fms {
 		}
 
 		// eat t or return error with view unchanged
-		bool eat(T t)
+		constexpr bool eat(T t)
 		{
 			if (!len or *buf != t) {
 				return false;
@@ -50,7 +50,7 @@ namespace fms {
 			return true;
 		}
 		// eat null terminated s or return error with view unchanged
-		bool eat(T const* s)
+		constexpr bool eat(T const* s)
 		{
 			char_view v_{ *this };
 
@@ -70,7 +70,7 @@ namespace fms {
 			return true;
 		}
 		// eat n characters of s or return error with view unchanged
-		bool eat(T const* s, int n)
+		constexpr bool eat(T const* s, int n)
 		{
 			char_view v_{ *this };
 

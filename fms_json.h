@@ -3,13 +3,16 @@
 #define FMS_JSON_INCLUDED
 
 #include "fms_parse_json.h"
-#ifdef NULL
-#undef NULL
-#endif
 
 namespace fms::json {
 
-#define FMS_JSON_TYPE(X) X(NULL) X(OBJECT) X(ARRAY) X(STRING) X(NUMBER) X(BOOLEAN)
+#define FMS_JSON_TYPE(X) \
+	X(JSON_NULL) \
+	X(JSON_OBJECT) \
+	X(JSON_ARRAY) \
+	X(JSON_STRING) \
+	X(JSON_NUMBER) \
+	X(JSON_BOOLEAN) \
 
 #define FMS_JSON_ENUM(x) x,
 	enum class type {
@@ -57,7 +60,7 @@ namespace fms::json {
 		{ }
 		bool operator==(const number& n) const
 		{
-			return type::NUMBER == type() and std::get<number>(*this) == n;
+			return type::JSON_NUMBER == type() and std::get<number>(*this) == n;
 		}
 		explicit operator number& ()
 		{
@@ -94,7 +97,7 @@ namespace fms::json {
 			if (type() != v.type()) {
 				return false;
 			}
-#define FMS_JSON_CASE(x) case type::x : \
+#define FMS_JSON_CASE(x) case type::##x : \
 	return std::get<static_cast<std::size_t>(type::x)>(*this) == std::get<static_cast<std::size_t>(type::x)>(v);
 			switch (type()) {
 				FMS_JSON_TYPE(FMS_JSON_CASE)
@@ -137,7 +140,7 @@ namespace fms::json {
 	{
 		{
 			value v;
-			assert(type::NULL == v.type());
+			assert(type::JSON_NULL == v.type());
 			auto v2{ v };
 			assert(v == v2);
 			v = v2;
@@ -149,9 +152,9 @@ namespace fms::json {
 			assert(v == v2);
 			v = v2;
 			assert(!(v2 != v));
-			assert(type::BOOLEAN == v.type());
+			assert(type::JSON_BOOLEAN == v.type());
 			assert(true == std::get<bool>(v));
-			assert(true == std::get<(std::size_t)type::BOOLEAN>(v));
+			assert(true == std::get<(std::size_t)type::JSON_BOOLEAN>(v));
 		}
 		{
 			value v(1.);
@@ -159,7 +162,7 @@ namespace fms::json {
 			assert(v == v2);
 			v = v2;
 			assert(!(v2 != v));
-			assert(type::NUMBER == v.type());
+			assert(type::JSON_NUMBER == v.type());
 			assert(1 == std::get<double>(v));
 			assert(1 == std::get<number>(v));
 		}
@@ -169,7 +172,7 @@ namespace fms::json {
 			assert(v == v2);
 			v = v2;
 			assert(!(v2 != v));
-			assert(type::NUMBER == v.type());
+			assert(type::JSON_NUMBER == v.type());
 			assert(1 == std::get<double>(v));
 			assert(1 == std::get<number>(v));
 		}
@@ -179,13 +182,13 @@ namespace fms::json {
 			assert(v == v2);
 			v = v2;
 			assert(!(v2 != v));
-			assert(type::STRING == v.type());
+			assert(type::JSON_STRING == v.type());
 			assert(std::get<string>(v) == "string");
 		}
 		{
 			char_view s("string");
 			value v(s);
-			assert(type::STRING == v.type());
+			assert(type::JSON_STRING == v.type());
 			assert(std::get<string>(v) == "string");
 		}
 		{
@@ -194,7 +197,7 @@ namespace fms::json {
 			assert(v == v2);
 			v = v2;
 			assert(!(v2 != v));
-			assert(type::ARRAY == v.type());
+			assert(type::JSON_ARRAY == v.type());
 			assert(!std::get<array>(v)[0]);
 			assert(1.2 == std::get<array>(v)[1]);
 			assert(std::get<array>(v)[2] == "str");
