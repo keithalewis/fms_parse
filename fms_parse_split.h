@@ -11,7 +11,7 @@ namespace fms::parse {
 	// if l is encountered then parse until r is encountered
 	// ignoring c and keeping track of nesting level
 	template<class T>
-	inline char_view<T> split(char_view<T> v, T c, T l, T r, T e = 0)
+	constexpr char_view<T> split(char_view<T> v, T c, T l, T r, T e = 0)
 	{
 		char_view<T> v_{ v };
 
@@ -56,11 +56,11 @@ namespace fms::parse {
 		void incr()
 		{
 			if (!std::isspace(l)) {
-				v_.wstrim();
+				v_.ws_trim();
 			}
 			v = split<T>(v_, c, l, r, e);
 			if (!std::isspace(r)) {
-				v.trimws();
+				v.trim_ws();
 			}
 		}
 	public:
@@ -190,6 +190,7 @@ namespace fms::parse {
 
 			return 0;
 		}
+	};
 
 #endif // _DEBUG
 		
@@ -276,6 +277,7 @@ namespace fms::parse {
 			}
 		};
 		// Return finite_iterable of v split by c, l, r, and e.
+		/*
 		template<class I, class T>
 		class spliterable {
 			I buf;
@@ -333,6 +335,6 @@ namespace fms::parse {
 
 			bool operator==(const spliterable& s) const = default;
 		};
-	};
+		*/
 
 } // namespace fms::parse

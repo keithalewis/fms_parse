@@ -5,6 +5,7 @@
 #include <cassert>
 #include <algorithm>
 #include <numeric>
+#include <stdexcept>
 #endif
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -25,6 +26,7 @@ namespace win {
 	template<class T>
 	class mem_view : public fms::view<T> {
 		HANDLE h;
+		fms::view<T> init, cur;
 	public:
 		using fms::view<T>::buf;
 		using fms::view<T>::len;
@@ -39,7 +41,24 @@ namespace win {
 		{
 			if (h != nullptr) {
 				len = 0;
-				buf = (T*)MapViewOfFile(h, FILE_MAP_ALL_ACCESS, 0, 0, len * sizeof(T));
+				buf = static_cast<T*>(MapViewOfFile(h, FILE_MAP_ALL_ACCESS, 0, 0, len * sizeof(T)));
+			}
+			else {
+				DWORD err = GetLastError();
+				char* buf = nullptr;
+
+				if (FormatMessageA(
+					FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+					nullptr,
+					err,
+					MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+					buf,
+					0, nullptr)) 
+				{
+					std::string msg(buf);
+					LocalFree(buf);
+					throw std::runtime_error(msg);
+				}
 			}
 		}
 		mem_view(const mem_view&) = delete;
@@ -52,7 +71,25 @@ namespace win {
 
 		explicit operator bool() const
 		{
-			return h != nullptr;
+			return !!*this;
+		}
+
+		mem_view& reset()
+		{
+			return *this = init;
+		}
+		mem_view& push()
+		{
+			cur = *this;
+			return *this;
+		}
+		mem_view& pop()
+		{
+			if (cur) {
+				*this = cur;
+				cur = fms::view<T>{};
+			}
+			return *this;
 		}
 
 		// Write to buffered memory.
@@ -63,6 +100,10 @@ namespace win {
 
 			return *this;
 		}
+		mem_view& append(const std::initializer_list<T>& il)
+		{
+			return append(il.begin(), static_cast<DWORD>(il.size()));
+		}
 #ifdef _DEBUG
 
 		static int test()
@@ -72,19 +113,14 @@ namespace win {
 				assert(v.len == 0);
 				T t[] = { 1,2,3 };
 				v.append(t, 3);
-				assert(v.len == 3);
-				assert(v[0] == 1);
-				assert(v[1] == 2);
-				assert(v[2] == 3);
+				assert(v.equal({ 1,2,3 }));
 			}
 			{
 				mem_view<T> v;
 				assert(v.len == 0);
 				v.len = 3;
 				std::iota(v.begin(), v.end(), T(1));
-				for (int i = 0; i < 3; ++i) {
-					assert(v[i] == T(i) + T(1));
-				}
+				assert(v.equal({ 1,2,3 }));
 			}
 
 			return 0;

@@ -12,39 +12,78 @@
 #include "fms_char_view.h"
 
 namespace fms::json {
+	
+#define FMS_JSON_TYPE(X) \
+	X(JSON_NULL) \
+	X(JSON_OBJECT) \
+	X(JSON_ARRAY) \
+	X(JSON_STRING) \
+	X(JSON_NUMBER) \
+	X(JSON_BOOLEAN) \
 
-	// eat characters and ensure whitespace terminated
+#define FMS_JSON_ENUM(x) x,
+	enum class type {
+	FMS_JSON_TYPE(FMS_JSON_ENUM)
+};
+#undef FMS_JSON_ENUM
+
+	// Advance v by eating characters and white space.
 	template<class T>
-	inline bool eat_chars(char_view<T>& v, const char* s, int n)
+	constexpr char_view<T> eat_chars(char_view<T> v, const char* s, int n = 0)
 	{
-		while (v and n--) {
-			if (*v++ != *s++) {
-				return false;
-			}
-		}
-		if (v and !::isspace(*v)) {
-			return false;
-		}
-
-		return true;
+		return v;//??? v.eat(s, n).ws_trim();
 	}
+#ifdef _DEBUG
+	//static_assert(eat_chars(char_view<const char>("123"), "123", 3));
+	//constexpr char buf[] = "123";
+	//constexpr v(buf);
+	//static_assert(!eat_chars(char_view<char>(buf, 3), "123", 3));
+#endif // _DEBUG	
 
 	template<class T>
-	inline bool is_null(char_view<T>& v)
+	constexpr bool is_null(const char_view<T>& v)
+	{
+		return v.equal("null");
+	}
+	template<class T>
+	constexpr char_view<T> parse_null(char_view<T> v)
 	{
 		return eat_chars(v, "null", 4);
 	}
 
 	template<class T>
-	inline bool is_true(char_view<T>& v)
+	constexpr bool parse_true(char_view<T>& v)
 	{
-		return eat_chars(v, "true", 4);
+		v = eat_chars(v, "true", 4);
+
+		return !v.is_error();
 	}
 
 	template<class T>
-	inline bool is_false(char_view<T>& v)
+	constexpr bool parse_false(char_view<T>& v)
 	{
-		return eat_chars(v, "false", 5);
+		v = eat_chars(v, "false", 5);
+
+		return !v.is_error();
+	}
+
+	template<class T>
+	constexpr bool parse_boolean(char_view<T>& v)
+	{
+		auto v_ = parse_true(v);
+		
+		if (parse_null(v)) {
+			return { type::JSON_NULL, nullptr };
+		}
+		else if (parse_true(v)) {
+			return { type::JSON_BOOLEAN, true };
+		}
+		else if (parse_false(v)) {
+			return { type::JSON_BOOLEAN, false };
+		}
+		else {
+			return v.error();
+		}
 	}
 
 	// "str\\\"ing" -> str\\\"ing
@@ -73,8 +112,8 @@ namespace fms::json {
 		return String(v_.buf, v_.len);
 	}
 
-	template<class T, class Number>
-	inline Number parse_number(char_view<T>& v)
+	template<class T>
+	inline double parse_number(char_view<T>& v)
 	{
 		static constexpr double NaN = std::numeric_limits<double>::quiet_NaN();
 		double sgn = 1, x = NaN;
@@ -101,7 +140,7 @@ namespace fms::json {
 			return x;
 		};
 
-		v.wstrim(); // trim leading, leave trailing whitespace
+		v.ws_trim(); // trim leading, leave trailing whitespace
 
 		if (v and *v == '-') {
 			sgn = -1;
@@ -135,8 +174,15 @@ namespace fms::json {
 			}
 		}
 		e *= integer(v);
+		double num = sgn * x;
+		while (e-- > 0) {
+			num *= 10;
+		}
+		while (e++ < 0) {
+			num /= 10;
+		}	
 
-		return Number(v and !::isspace(*v) ? NaN : sgn * x * std::pow(10, e));
+		return v and !is_space(*v) ? NaN : num;
 	}
 
 	template<class T, class String, class Value>
@@ -145,10 +191,10 @@ namespace fms::json {
 		String key;
 		Value val;
 
-		v.wstrim();
+		v.ws_trim();
 		key = parse_string(v);
-		if (v.wstrim() and v.eat(':')) {
-			v.wstrim();
+		if (v.ws_trim() and v.eat(':')) {
+			v.ws_trim();
 			val = parse_value(v);
 		}
 
@@ -161,7 +207,7 @@ namespace fms::json {
 		Object o;
 
 		o.insert(parse_member(v));
-		while (v.wstrim() and *v == ',') {
+		while (v.ws_trim() and *v == ',') {
 			v.eat(',');
 			o.insert(parse_member(v));
 		}
@@ -173,10 +219,10 @@ namespace fms::json {
 	{
 		Array a;
 
-		v.wstrim();
+		v.ws_trim();
 		if (v) {
 			a.push_back(parse_value(v));
-			while (v.wstrim() and v.eat(',')) {
+			while (v.ws_trim() and v.eat(',')) {
 				a.push_back(parse_value(v));
 			}
 		}
@@ -189,18 +235,18 @@ namespace fms::json {
 	{
 		Value val;
 
-		v.wstrim();
+		v.ws_trim();
 		if (v) {
 			if (*v == '{') {
 				v.eat('{');
 				val = parse_object(v);
-				v.wstrim();
+				v.ws_trim();
 				v.eat('}');
 			}
 			else if (*v == '[') {
 				v.eat('[');
 				val = parse_array(v);
-				v.wstrim();
+				v.ws_trim();
 				v.eat(']');
 			}
 			else if (*v == '"') {
@@ -208,20 +254,20 @@ namespace fms::json {
 				val = parse_string(v);
 				v.eat('"');
 			}
-			else if (is_null(v)) {
+			else if (parse_null(v)) {
 				; // default object
 			}
-			else if (is_true(v)) {
+			else if (parse_true(v)) {
 				val = true;
 			}
-			else if (is_false(v)) {
+			else if (parse_false(v)) {
 				val = false;
 			}
 			else {
 				val = parse_number(v);
 			}
 		}
-		// ensure(!v.wstrim());
+		// ensure(!v.ws_trim());
 
 		return val;
 	}
@@ -232,26 +278,27 @@ namespace fms::json {
 		{
 			wchar_t null[] = L"null";
 			auto v = char_view(null);
-			assert(is_null(v));
+			parse_null(v);
 			assert(!v);
 		}
 		{
 			wchar_t null[] = L"Null";
 			auto v = char_view(null);
-			assert(!is_null(v));
-			//assert(v.equal(null));
+			parse_null(v);
+			assert(v.is_error());
 		}
 		{
 			wchar_t null[] = L"null foo";
 			auto v = char_view(null);
-			assert(is_null(v));
-			assert(v.equal(L" foo"));
+			parse_null(v);
+			assert(v.equal("foo"));
 		}
 		{
 			wchar_t null[] = L"nullfoo";
 			auto v = char_view(null);
-			assert(!is_null(v));
-			//assert(v.equal(L"nullfoo"));
+			parse_null(v);
+			assert(v.is_error());
+			assert(v.error_view().equal("nullfoo"));
 		}
 
 		return 0;
@@ -272,20 +319,20 @@ namespace fms::json {
 	X(1.25E-2, true) \
 	X(-1.25E-2, true) \
 
-#define PARSE_NUMBER_TEST(a,b) { char_view v(#a); double x = parse_number<const char,double>(v); assert(!b or a == x); }
+#define PARSE_NUMBER_TEST(a,b) { char_view v(#a); double x = parse_number<const char>(v); assert(!b or a == x); }
 
 	inline int parse_number_test()
 	{
 		PARSE_NUMBER_DATA(PARSE_NUMBER_TEST);
 		{
 			char_view v("1x");
-			double x = parse_number<const char, double>(v);
+			double x = parse_number<const char>(v);
 			assert(std::isnan(x));
 			assert(v.equal("x"));
 		}
 		{
 			char_view v("1 x");
-			double x = parse_number<const char, double>(v);
+			double x = parse_number<const char>(v);
 			assert(1 == x);
 			assert(v.equal(" x"));
 		}
