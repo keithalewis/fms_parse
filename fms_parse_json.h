@@ -29,9 +29,9 @@ namespace fms::json {
 
 	// Advance v by eating characters and white space.
 	template<class T>
-	constexpr char_view<T> eat_chars(char_view<T> v, const char* s, int n = 0)
+	constexpr char_view<T> eat_chars(char_view<T> v, const char* s, long n = 0)
 	{
-		return v;//??? v.eat(s, n).ws_trim();
+		return v;// v.eat(s, n).ws_trim();
 	}
 #ifdef _DEBUG
 	//static_assert(eat_chars(char_view<const char>("123"), "123", 3));
@@ -40,11 +40,6 @@ namespace fms::json {
 	//static_assert(!eat_chars(char_view<char>(buf, 3), "123", 3));
 #endif // _DEBUG	
 
-	template<class T>
-	constexpr bool is_null(const char_view<T>& v)
-	{
-		return v.equal("null");
-	}
 	template<class T>
 	constexpr char_view<T> parse_null(char_view<T> v)
 	{
