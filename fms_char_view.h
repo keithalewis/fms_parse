@@ -17,16 +17,21 @@ namespace fms {
 		}
 		return n;
 	}
+#ifdef _DEBUG
+	static_assert(length("") == 0);
 	static_assert(length("abc") == 3);
+#endif // _DEBUG
 
 	template<class T>
 	constexpr T abs(T x)
 	{
 		return x < 0 ? -x : x;
 	}
+#ifdef _DEBUG
 	static_assert(abs(1) == 1);
 	static_assert(abs(0) == 0);
 	static_assert(abs(-1) == 1);
+#endif // _DEBUG
 
 	// Is a base b digit.
 	template<class T>
@@ -67,22 +72,23 @@ namespace fms {
 
 	// Is a JSON space character, form feed, or vertical tab.
 	template<class T>
-	constexpr bool is_space(T c)
+	constexpr bool is_space(T c, bool json = false)
 	{
-		return c == ' ' or c == '\t' or c == '\n' or c == '\r' or c == '\f' or c == '\v';
+		return c == ' ' or c == '\t' or c == '\n' or c == '\r' or (json ? c == '\f' or c == '\v' : false);
 	}
 #ifdef _DEBUG
 	static_assert(is_space(' '));
 	static_assert(is_space('\t'));
 	static_assert(is_space('\n'));
 	static_assert(is_space('\r'));
-	static_assert(is_space('\f'));
-	static_assert(is_space('\v'));
+	static_assert(is_space('\f', true));
+	static_assert(!is_space('\v'));
 	static_assert(!is_space('a'));
 #endif // _DEBUG	
 
 
-	// std::integral T ???
+	// requiers std::integral T ???
+	// View of contiguous characters.
 	template<class T> 
 	struct char_view : public view<T> {
 		using view<T>::view; // bring in all constructors
@@ -104,8 +110,7 @@ namespace fms {
 		{ }
 		constexpr char_view(const char_view&) = default;
 		constexpr char_view& operator=(const char_view&) = default;
-		constexpr ~char_view()
-		{ }
+		constexpr ~char_view() = default;
 
 		// Indicate error using negative length.
 		constexpr char_view error() const noexcept
@@ -125,15 +130,20 @@ namespace fms {
 		// Equal using string s of length n or null terminated if n == 0.
 		constexpr bool equal(const char* s, long n = 0) const noexcept
 		{
-			return equal(char_view<const char>(s, n ? n : length(s)));
+			return equal(view<const char>(s, n ? n : length(s)));
 		}
 		constexpr bool starts_with(const char* s, long n = 0) const noexcept
 		{
 			n = n ? n : length(s);
 			return fms::take(n, *this).equal(view<const char>(s, n));
 		}
+		constexpr bool end_with(const char* s, long n = 0) const noexcept
+		{
+			n = n ? n : length(s);
+			return fms::take(-n, *this).equal(view<const char>(s, n));
+		}
 
-		// eat t or return error with view unchanged
+		// Eat t or return error with view unchanged.
 		constexpr char_view& eat(T t) noexcept
 		{
 			if (!len or *buf != t) {
@@ -146,11 +156,9 @@ namespace fms {
 			return *this;
 		}
 		// eat n characters or until null of s if n == 0 
-		constexpr char_view& eat(const T* s, long n = 0)
+		constexpr char_view& eat(const char* s, long n = 0)
 		{
-			if (n == 0) {
-				n = length(s);
-			}
+			n = n ? n : length(s);
 			while ((n ? n-- : *s) and !is_error()) {
 				eat(*s++);
 			}
@@ -162,82 +170,84 @@ namespace fms {
 		}
 
 		// remove white space from beginning
-		constexpr char_view& ws_trim()
+		constexpr char_view& ws_trim(bool json = false)
 		{
-			while (len and is_space(view<T>::front())) {
+			while (len and is_space(view<T>::front(), json)) {
 				view<T>::drop(1);
 			}
 
 			return *this;
 		}
 		// remove white space from end
-		constexpr char_view& trim_ws()
+		constexpr char_view& trim_ws(bool json = false)
 		{
-			while (len and is_space(view<T>::back())) {
+			while (len and is_space(view<T>::back(), json)) {
 				view<T>::drop(-1);
 			}
 
 			return *this;
 		}
-		constexpr char_view& trim()
+		constexpr char_view& trim(bool json = false)
 		{
-			return ws_trim().trim_ws();
+			return ws_trim(json).trim_ws(json);
 		}
 	};
 #ifdef _DEBUG
-	static_assert(char_view<int>().len == 0);
-	static_assert(!char_view<char>());
-	static_assert(char_view("abc").len == 3);
-	static_assert(length(char_view("abc").buf) == 3);
-	static_assert(!char_view(L"A").is_error());
-	static_assert(char_view(L"A").error().is_error());
-	static_assert(char_view<char>().equal(""));
-	//static_assert(!char_view<char>("").equal("a"));
-	static_assert(char_view("a").equal("a"));
-	static_assert(!char_view("a").equal("b", 0));
-	static_assert(char_view("abc").equal("abc", 0));
-	static_assert(!char_view("abc").equal("abx", 0));
-	static_assert(!char_view("abc").equal("abcd", 0));
-//	static_assert(char_view("abc").equal("abd", 2));
-	static_assert(!char_view("abc").equal("ac", 2));
-	static_assert(char_view(L"abc").equal("abc", 0));
-	static_assert(!char_view(L"abc").equal("abx"));
-//	static_assert(char_view(L"abc").equal("ab", 2));
-	static_assert(!char_view(L"abc").equal("ac", 2));
-	// Simple success: eat one char
-	static_assert([]() constexpr {
-		fms::char_view<const char> v("abc");
-		v.eat('a');
-		return v.equal("bc");
-		}());
+	namespace {
+		static_assert(char_view<int>().len == 0);
+		static_assert(!char_view<char>());
+		static_assert(char_view("abc").len == 3);
+		static_assert(length(char_view("abc").buf) == 3);
+		static_assert(!char_view(L"A").is_error());
+		static_assert(char_view(L"A").error().is_error());
+		static_assert(char_view<char>().equal(""));
+		//static_assert(!char_view<char>("").equal("a"));
+		static_assert(char_view("a").equal("a"));
+		static_assert(!char_view("a").equal("b", 0));
+		static_assert(char_view("abc").equal("abc", 0));
+		static_assert(!char_view("abc").equal("abx", 0));
+		static_assert(!char_view("abc").equal("abcd", 0));
+		//	static_assert(char_view("abc").equal("abd", 2));
+		static_assert(!char_view("abc").equal("ac", 2));
+		static_assert(char_view(L"abc").equal("abc", 0));
+		static_assert(!char_view(L"abc").equal("abx"));
+		//	static_assert(char_view(L"abc").equal("ab", 2));
+		static_assert(!char_view(L"abc").equal("ac", 2));
+		// Simple success: eat one char
+		static_assert([]() constexpr {
+			fms::char_view<const char> v("abc");
+			v.eat('a');
+			return v.equal("bc");
+			}());
 
-	// Eat a string (auto-length)
-	static_assert([]() constexpr {
-		fms::char_view<const char> v("abc");
-		v.eat("ab");
-		return v.equal("c");
-		}());
+		// Eat a string (auto-length)
+		static_assert([]() constexpr {
+			fms::char_view<const char> v("abc");
+			v.eat("ab");
+			return v.equal("c");
+			}());
 
-	// Error path: wrong char sets error and preserves error_view()
-	static_assert([]() constexpr {
-		fms::char_view<const char> v("abc");
-		v.eat('x');
-		return v.is_error() && v.error_view().equal("abc");
-		}());
+		// Error path: wrong char sets error and preserves error_view()
+		static_assert([]() constexpr {
+			fms::char_view<const char> v("abc");
+			v.eat('x');
+			return v.is_error() && v.error_view().equal("abc");
+			}());
 
-	// Bounded eat: consume only first of "ac"
-	static_assert([]() constexpr {
-		fms::char_view<const char> v("abc");
-		v.eat("ac", 1);
-		return /*v.equal("bc") &&*/ v.is_error();
-		}());
+		// Bounded eat: consume only first of "ac"
+		static_assert([]() constexpr {
+			fms::char_view<const char> v("abc");
+			v.eat("ac", 1);
+			return /*v.equal("bc") &&*/ v.is_error();
+			}());
 
-	// Wide-char variant
-	static_assert([]() constexpr {
-		fms::char_view<const wchar_t> v(L"abc");
-		v.eat(L'a');
-		return v.equal("bc");
-		}());
+		// Wide-char variant
+		static_assert([]() constexpr {
+			fms::char_view<const wchar_t> v(L"abc");
+			v.eat(L'a');
+			return v.equal("bc");
+			}());
+	}
 #endif // _DEBUG
 
 	// Function versions

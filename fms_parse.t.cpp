@@ -22,7 +22,14 @@ int test_win_mem_veiw_double = win::mem_view<double>::test();
 int test_fms_parse_splitable = fms::parse::splitable<char>::test();
 #endif
 
+using namespace fms::json;
+
 int main()
 {
+	Number num = 1;
+	String str = "abc";
+	Member m{ str, num };
+
+
 	return 0;
 }

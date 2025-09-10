@@ -36,11 +36,9 @@ namespace fms {
 		}
 		constexpr view(const view&) = default;
 		constexpr view& operator=(const view&) = default;
-		constexpr view(view&&) = default;
-		constexpr view& operator=(view&&) = default;
-		constexpr ~view()
-		{
-		}
+		constexpr view(view&&) = delete;
+		constexpr view& operator=(view&&) = delete;
+		constexpr ~view() = default;
 
 		constexpr explicit operator bool() const noexcept
 		{
@@ -273,23 +271,25 @@ namespace fms {
 #endif // _DEBUG
 
 #ifdef _DEBUG
-constexpr char buf[] = "123";
-constexpr auto v = view("123", 3);
-constexpr auto v2{ v };
-static_assert(v == v2);
+	namespace {
+		constexpr char buf[] = "123";
+		constexpr auto v = view("123", 3);
+		constexpr auto v2{ v };
+		static_assert(v == v2);
 
-static_assert(!view(buf, 0));
-static_assert(view(buf, 1));
-static_assert(equal(view(buf, 1), view("1", 1)));
-static_assert(view(buf, 3));
-static_assert(view(buf, 2).len == 2);
+		static_assert(!view(buf, 0));
+		static_assert(view(buf, 1));
+		static_assert(equal(view(buf, 1), view("1", 1)));
+		static_assert(view(buf, 3));
+		static_assert(view(buf, 2).len == 2);
 
-static_assert(v.front() == '1');
-static_assert(v.back() == '3');
+		static_assert(v.front() == '1');
+		static_assert(v.back() == '3');
 
-static_assert(take(1, view(buf, 3)).len == 1);
-static_assert(equal(take(1, view(buf, 3)), view("1", 1)));
-static_assert(equal(drop(1, view(buf, 3)), view("23", 2)));
+		static_assert(take(1, view(buf, 3)).len == 1);
+		static_assert(equal(take(1, view(buf, 3)), view("1", 1)));
+		static_assert(equal(drop(1, view(buf, 3)), view("23", 2)));
+	}
 #endif // _DEBUG
 
 
